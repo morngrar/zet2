@@ -42,6 +42,15 @@ func main() {
 	}
 }
 
+// TODO: branch command
+// TODO: extract command
+// TODO: help/usage output
+// TODO: tab completion
+
+// TODO: rename command
+// TODO: graft command
+// TODO: prune command
+
 func create(prefix string) {
 
 	entries, err := os.ReadDir(zetDir)
