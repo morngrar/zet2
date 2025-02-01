@@ -44,6 +44,10 @@ func main() {
 
 // TODO: branch command
 // TODO: extract command
+// TODO: link command
+// TODO: open command
+//	- w/ support for xxx.1a2b -> xxx.1a2b1.md
+
 // TODO: help/usage output
 // TODO: tab completion
 
