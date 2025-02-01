@@ -25,7 +25,7 @@ func main() {
 	shift(&os.Args)
 	if len(os.Args) == 0 {
 		// NOTE: shorthand for create with default prefix
-		create(defaultPrefix, zetDir)
+		create(defaultPrefix)
 		return
 	}
 
@@ -34,7 +34,7 @@ func main() {
 
 		// add checks for supported singular commands here
 
-		create(os.Args[0], zetDir)
+		create(os.Args[0])
 	}
 
 	// TODO: subcommand tree
@@ -42,9 +42,9 @@ func main() {
 	}
 }
 
-func create(prefix, dir string) {
+func create(prefix string) {
 
-	entries, err := os.ReadDir(dir)
+	entries, err := os.ReadDir(zetDir)
 	if err != nil {
 		panic(err)
 	}
@@ -93,7 +93,7 @@ func create(prefix, dir string) {
 	}
 
 	fileName := fmt.Sprintf("%s.md", zettelId)
-	filePath := path.Join(dir, fileName)
+	filePath := path.Join(zetDir, fileName)
 	f, err := os.Create(filePath)
 	if err != nil {
 		panic(err)
