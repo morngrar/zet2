@@ -25,7 +25,7 @@ func main() {
 	shift(&os.Args)
 	if len(os.Args) == 0 {
 		// NOTE: shorthand for create with default prefix
-		create(defaultPrefix)
+		CreateCommand(defaultPrefix)
 		return
 	}
 
@@ -34,7 +34,7 @@ func main() {
 
 		// add checks for supported singular commands here
 
-		create(os.Args[0])
+		CreateCommand(os.Args[0])
 	}
 
 	// TODO: subcommand tree
@@ -61,7 +61,7 @@ func main() {
 // TODO: graft command
 // TODO: prune command
 
-func create(prefix string) {
+func CreateCommand(prefix string) {
 
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
