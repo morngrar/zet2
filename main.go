@@ -393,6 +393,8 @@ func timestamp() string {
 	return ts
 }
 
-func shift(stringSlice *[]string) {
+func shift(stringSlice *[]string) string {
+	ret := (*stringSlice)[0]
 	*stringSlice = (*stringSlice)[1:]
+	return ret
 }
