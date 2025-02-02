@@ -377,7 +377,13 @@ func CreateCommand(prefix string) {
 }
 
 func openInEditor(path string) {
-	cmd := exec.Command(editor, "+6", path)
+	var cmd *exec.Cmd
+	if editor == "vim" || editor == "nvim" {
+		cmd = exec.Command(editor, "+6", "-c", "startinsert", path)
+	} else {
+		cmd = exec.Command(editor, "+6", path)
+	}
+
 	cmd.Stdin = os.Stdin
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
