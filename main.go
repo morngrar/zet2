@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,7 @@ import (
 	"os/exec"
 	"path"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -384,6 +386,23 @@ func openInEditor(path string) {
 	if err != nil {
 		log.Fatalf("Unable to run editor (%s) command: %s", editor, err)
 	}
+}
+
+func putOnClipBoard(text string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+
+	case "linux":
+		cmd = exec.Command("xclip", "-selection", "clipboard")
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	default:
+		return fmt.Errorf("Adding stuff to clipboard is not implemented on your platform")
+	}
+
+	buf := bytes.NewBuffer([]byte(text))
+	cmd.Stdin = buf
+	return cmd.Run()
 }
 
 func timestamp() string {
