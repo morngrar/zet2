@@ -290,11 +290,22 @@ func IncrementAlphaBranch(id string) (string, error) {
 }
 
 // TODO: open command
+//	- `zet open ID` -> open file in edior
 
-// TODO: extract command
+// TODO: resolve command
+//	- `zet resolve next ID` -> next available file path in sequence of ID
+//	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
+//	- `zet resolve ID` -> absolute path to file
+
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin, ??? on windows
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
+//	- `zet link path PATH` -> [[ID]]
+
+// TODO: rename command
+
+// TODO: extract command
+//	- must update subtree IDs == rename command is needed
 
 // TODO: help/usage output
 // TODO: tab completion
@@ -304,9 +315,9 @@ func IncrementAlphaBranch(id string) (string, error) {
 // 1.0 here
 
 // further features past 1.0
-// TODO: rename command
 // TODO: graft command
 // TODO: prune command
+// TODO: browse command - TUI
 
 func CreateCommand(prefix string) {
 
