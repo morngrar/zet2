@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -72,7 +71,6 @@ func main() {
 	}
 }
 
-// TODO: branch command
 func BranchCommand(parentId string) {
 
 	// NOTE: how to make sure that the file names in the system and the links
@@ -89,7 +87,7 @@ func BranchCommand(parentId string) {
 	filePath := path.Join(zetDir, fileName)
 
 	// read in the file
-	byteContent, err := ioutil.ReadFile(filePath)
+	byteContent, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatalf("Unable to open parent '%s' for branching: %s", filePath, err)
 	}
