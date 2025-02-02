@@ -16,6 +16,13 @@ var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
 
+// prefixes that are disallowed because they will come in conflict with
+// subcommands
+var reservedPrefixes = []string{
+	"open",
+	"help",
+}
+
 func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 
@@ -45,10 +52,11 @@ func main() {
 }
 
 // TODO: branch command
+// TODO: open command
+
 // TODO: extract command
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin, ??? on windows
-// TODO: open command
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
 
 // TODO: help/usage output
