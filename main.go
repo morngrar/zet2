@@ -267,7 +267,7 @@ func AlphaMax(a, b string) (string, error) {
 		}
 	}
 
-	return "", errors.New(fmt.Sprintf("a and b seem to be equal: %q, %q", a, b))
+	return "", errors.New(fmt.Sprintf("%q and %q seem to be equal", a, b))
 }
 
 // IncrementAlphaBranch takes a zettel ID that ends in an alphabetic character
@@ -277,7 +277,7 @@ func IncrementAlphaBranch(id string) (string, error) {
 	var alphabet = "abcdefghijklmnopqrstuvwxyz"
 
 	if id[len(id)-1:] == "z" {
-		return id + "a", nil
+		return id + "a", nil // z -> za
 	}
 
 	for i, r := range alphabet {
