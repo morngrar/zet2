@@ -289,35 +289,47 @@ func IncrementAlphaBranch(id string) (string, error) {
 	return id, errors.New("invalid branch string")
 }
 
+// TODO: resolve command
+//	- `zet resolve ID` -> absolute path to file
+
 // TODO: open command
 //	- `zet open ID` -> open file in edior
 
-// TODO: resolve command
+// 0.1 for testing with vim here
+
+// TODO: code cleanup/refactoring
+// TODO: resolve navigation
 //	- `zet resolve next ID` -> next available file path in sequence of ID
 //	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
-//	- `zet resolve ID` -> absolute path to file
+
+// 0.2 here
 
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin, ??? on windows
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
 //	- `zet link path PATH` -> [[ID]]
+//	- `zet link srcId destId` -> append dst with link to src on new line
 
-// TODO: rename command
-
-// TODO: extract command
-//	- must update subtree IDs == rename command is needed
+// 0.3 here
 
 // TODO: help/usage output
 // TODO: tab completion
-
 // TODO: goreleaser
 
 // 1.0 here
+
+// TODO: rename command
+// TODO: extract command
+//	- must update subtree IDs == rename command is needed
+
+// 1.1 here
 
 // further features past 1.0
 // TODO: graft command
 // TODO: prune command
 // TODO: browse command - TUI
+//	- look at gh for rendering markdown
+//	- look at logbrowser for the tui stuff, dont overcomplicate
 
 func CreateCommand(prefix string) {
 
