@@ -17,9 +17,11 @@ var zetDir = "./zettel"
 var defaultPrefix = "tmp"
 
 func main() {
+	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
+
 	err := os.MkdirAll(zetDir, os.ModePerm) // ensures existence of zettel dir
 	if err != nil {
-		panic(err)
+		log.Fatalf("Unable to ensure zettel dir '%s': %s", zetDir, err)
 	}
 
 	shift(&os.Args)
@@ -65,7 +67,7 @@ func CreateCommand(prefix string) {
 
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
 	}
 
 	maxNum := 0
@@ -115,7 +117,7 @@ func CreateCommand(prefix string) {
 	filePath := path.Join(zetDir, fileName)
 	f, err := os.Create(filePath)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Unable to create file '%s': %s", filePath, err)
 	}
 
 	ts := timestamp()
@@ -135,7 +137,7 @@ func openInEditor(path string) {
 
 	err := cmd.Run()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Unable to run editor (%s) command: %s", editor, err)
 	}
 }
 
