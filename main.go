@@ -91,6 +91,13 @@ func main() {
 
 	// TODO: subcommand tree
 	switch shift(&os.Args) {
+	case "create":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass prefix for creation")
+		}
+
+		CreateCommand(os.Args[0])
+
 	case "branch":
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass parent id")
