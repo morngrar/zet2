@@ -19,6 +19,7 @@ import (
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
+var version = "v0.1.0"
 
 // prefixes that are disallowed because they will come in conflict with
 // subcommands
@@ -26,9 +27,14 @@ var reservedPrefixes = []string{
 	"branch",
 	"next",
 	"previous",
+	"version",
+	"--version",
+	"-v",
 	"resolve",
 	"open",
 	"help",
+	"--help",
+	"-h",
 }
 
 func main() {
@@ -65,6 +71,12 @@ func main() {
 		// NOTE: support for shorthand prefixes
 
 		// add checks for supported singular commands here
+		for _, e := range []string{"version", "--version", "-v"} {
+			if e == os.Args[0] {
+				fmt.Printf("zet2 version: %s, Copyright 2025 S. Bjørnsen\n", version)
+				return
+			}
+		}
 
 		// check against reserved stuff
 		for _, e := range reservedPrefixes {
