@@ -325,6 +325,7 @@ func ResolveCommand() {
 // TODO: resolve navigation
 //	- `zet resolve next ID` -> next available file path in sequence of ID
 //	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
+// TODO: zet grep command
 
 // 0.2 here
 
@@ -354,6 +355,7 @@ func ResolveCommand() {
 // TODO: browse command - TUI
 //	- look at gh for rendering markdown
 //	- look at logbrowser for the tui stuff, dont overcomplicate
+// TODO: more sophisticated search
 
 func CreateCommand(prefix string) {
 
