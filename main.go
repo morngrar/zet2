@@ -299,9 +299,6 @@ func IncrementAlphaBranch(id string) (string, error) {
 	return id, errors.New("invalid branch string")
 }
 
-// TODO: resolve command
-//	- `zet resolve ID` -> absolute path to file
-
 func ResolveCommand() {
 	id := shift(&os.Args)
 	if id == "next" || id == "previous" {
