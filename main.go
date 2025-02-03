@@ -138,6 +138,10 @@ func BranchCommand() {
 	//	- therefore the zettel should be master
 
 	parentId := os.Args[0]
+	if strings.HasSuffix(parentId, ".md") {
+		base := path.Base(parentId)
+		parentId, _ = strings.CutSuffix(base, ".md")
+	}
 
 	fileName := fmt.Sprintf("%s.md", parentId)
 	filePath := path.Join(zetDir, fileName)
