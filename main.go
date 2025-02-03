@@ -31,42 +31,6 @@ var reservedPrefixes = []string{
 	"help",
 }
 
-// handleCompletion provides simple autocompletion.
-func handleCompletion(completions ...string) bool {
-
-	// Get the current word being completed
-	words := strings.Fields(os.Getenv("COMP_LINE"))
-
-	// If there are no words yet, print all possible completions
-	if len(words) == 1 {
-		for _, c := range completions {
-			fmt.Println(c)
-		}
-		return false
-	}
-
-	lastWord := words[len(words)-1]
-
-	// stop if exact match found
-	for _, c := range completions {
-		if len(c) != len(lastWord) {
-			continue
-		}
-
-		if c == lastWord {
-			return true // completion has complete match
-		}
-	}
-
-	for _, c := range completions {
-		if strings.HasPrefix(c, lastWord) {
-			fmt.Println(c)
-		}
-	}
-
-	return false
-}
-
 func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 
@@ -525,4 +489,40 @@ func shift(stringSlice *[]string) string {
 	ret := (*stringSlice)[0]
 	*stringSlice = (*stringSlice)[1:]
 	return ret
+}
+
+// handleCompletion provides simple autocompletion.
+func handleCompletion(completions ...string) bool {
+
+	// Get the current word being completed
+	words := strings.Fields(os.Getenv("COMP_LINE"))
+
+	// If there are no words yet, print all possible completions
+	if len(words) == 1 {
+		for _, c := range completions {
+			fmt.Println(c)
+		}
+		return false
+	}
+
+	lastWord := words[len(words)-1]
+
+	// stop if exact match found
+	for _, c := range completions {
+		if len(c) != len(lastWord) {
+			continue
+		}
+
+		if c == lastWord {
+			return true // completion has complete match
+		}
+	}
+
+	for _, c := range completions {
+		if strings.HasPrefix(c, lastWord) {
+			fmt.Println(c)
+		}
+	}
+
+	return false
 }
