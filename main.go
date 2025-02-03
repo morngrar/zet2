@@ -355,6 +355,10 @@ func ResolveCommand() {
 		panic("not implemented yet")
 	}
 
+	if !unicode.IsDigit(rune(id[len(id)-1])) {
+		id = getFirstSeqInBranch(id)
+	}
+
 	filePath := path.Join(zetDir, id+".md")
 	if !fileExists(filePath) {
 		log.Fatalf("file does not exist: %q", filePath)
@@ -382,45 +386,50 @@ func getAllIds() []string {
 	return ret
 }
 
+func getFirstSeqInBranch(id string) string {
+	maxSeqVal := 999999
+	allIds := getAllIds()
+	minSeq := maxSeqVal
+	for _, e := range allIds {
+		if strings.HasPrefix(e, id) {
+			base, seq, _, err := StripLeaf(e)
+			if err != nil {
+				panic(err)
+			}
+			if base != id {
+				continue
+			}
+			n, err := strconv.Atoi(seq)
+			if err != nil {
+				panic(err)
+			}
+
+			if n == 0 {
+				minSeq = n
+				break // cant go lower, stop search
+			}
+
+			if n < minSeq {
+				minSeq = n
+			}
+
+		}
+	}
+	if minSeq == maxSeqVal {
+		log.Fatalf("Unable to find branch: %q", id)
+	}
+
+	id = fmt.Sprintf("%s%d", id, minSeq)
+	return id
+}
+
 func OpenCommand() {
 
 	id := shift(&os.Args)
 
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
 		// not a sequence no. so must be branch
-		maxSeqVal := 999999
-		allIds := getAllIds()
-		minSeq := maxSeqVal
-		for _, e := range allIds {
-			if strings.HasPrefix(e, id) {
-				base, seq, _, err := StripLeaf(e)
-				if err != nil {
-					panic(err)
-				}
-				if base != id {
-					continue
-				}
-				n, err := strconv.Atoi(seq)
-				if err != nil {
-					panic(err)
-				}
-
-				if n == 0 {
-					minSeq = n
-					break // cant go lower, stop search
-				}
-
-				if n < minSeq {
-					minSeq = n
-				}
-
-			}
-		}
-		if minSeq == maxSeqVal {
-			log.Fatalf("Unable to find branch: %q", id)
-		}
-
-		id = fmt.Sprintf("%s%d", id, minSeq)
+		id = getFirstSeqInBranch(id)
 	}
 
 	filePath := path.Join(zetDir, id+".md")
