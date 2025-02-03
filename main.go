@@ -24,6 +24,9 @@ var defaultPrefix = "tmp"
 // subcommands
 var reservedPrefixes = []string{
 	"branch",
+	"next",
+	"previous",
+	"resolve",
 	"open",
 	"help",
 }
@@ -60,18 +63,23 @@ func main() {
 	}
 
 	// TODO: subcommand tree
-	switch os.Args[0] {
+	switch shift(&os.Args) {
 	case "branch":
-		shift(&os.Args)
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass parent id")
 		}
 
-		BranchCommand(os.Args[0])
+		BranchCommand()
+	case "resolve":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass id to resolve")
+		}
+
+		ResolveCommand()
 	}
 }
 
-func BranchCommand(parentId string) {
+func BranchCommand() {
 
 	// NOTE: how to make sure that the file names in the system and the links
 	// are always in sync?
@@ -82,6 +90,8 @@ func BranchCommand(parentId string) {
 	//	- if the file system is master, the situation is more unknown, and
 	//	responsibilities aren't clear
 	//	- therefore the zettel should be master
+
+	parentId := os.Args[0]
 
 	fileName := fmt.Sprintf("%s.md", parentId)
 	filePath := path.Join(zetDir, fileName)
@@ -291,6 +301,20 @@ func IncrementAlphaBranch(id string) (string, error) {
 
 // TODO: resolve command
 //	- `zet resolve ID` -> absolute path to file
+
+func ResolveCommand() {
+	id := shift(&os.Args)
+	if id == "next" || id == "previous" {
+		panic("not implemented yet")
+	}
+
+	filePath := path.Join(zetDir, id+".md")
+	if !fileExists(filePath) {
+		log.Fatalf("file does not exist: %q", filePath)
+	}
+
+	fmt.Println(filePath)
+}
 
 // TODO: open command
 //	- `zet open ID` -> open file in edior
