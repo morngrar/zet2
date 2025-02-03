@@ -441,9 +441,6 @@ func OpenCommand() {
 
 }
 
-// 0.1 for testing with vim here
-
-// TODO: code cleanup/refactoring
 // TODO: resolve navigation
 //	- `zet resolve next ID` -> next available file path in sequence of ID
 //	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
@@ -459,8 +456,10 @@ func OpenCommand() {
 
 // 0.3 here
 
+// TODO: code cleanup/refactoring
 // TODO: help/usage output
 // TODO: tab completion
+// TODO: automatic embed of latest git tag as version
 // TODO: goreleaser
 
 // 1.0 here
