@@ -83,14 +83,17 @@ func main() {
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass parent id")
 		}
-
 		BranchCommand()
 	case "resolve":
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass id to resolve")
 		}
-
 		ResolveCommand()
+	case "open":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass id to open")
+		}
+		OpenCommand()
 	}
 }
 
@@ -347,8 +350,55 @@ func getAllIds() []string {
 	return ret
 }
 
-// TODO: open command
-//	- `zet open ID` -> open file in edior
+func OpenCommand() {
+
+	id := shift(&os.Args)
+
+	if !unicode.IsDigit(rune(id[len(id)-1])) {
+		// not a sequence no. so must be branch
+		maxSeqVal := 999999
+		allIds := getAllIds()
+		minSeq := maxSeqVal
+		for _, e := range allIds {
+			if strings.HasPrefix(e, id) {
+				base, seq, _, err := StripLeaf(e)
+				if err != nil {
+					panic(err)
+				}
+				if base != id {
+					continue
+				}
+				n, err := strconv.Atoi(seq)
+				if err != nil {
+					panic(err)
+				}
+
+				if n == 0 {
+					minSeq = n
+					break // cant go lower, stop search
+				}
+
+				if n < minSeq {
+					minSeq = n
+				}
+
+			}
+		}
+		if minSeq == maxSeqVal {
+			log.Fatalf("Unable to find branch: %q", id)
+		}
+
+		id = fmt.Sprintf("%s%d", id, minSeq)
+	}
+
+	filePath := path.Join(zetDir, id+".md")
+	if !fileExists(filePath) {
+		log.Fatalf("File doesn't exist: %q", filePath)
+	}
+
+	openInEditor(filePath)
+
+}
 
 // 0.1 for testing with vim here
 
