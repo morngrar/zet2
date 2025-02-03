@@ -364,6 +364,25 @@ func ResolveCommand() {
 	fmt.Println(filePath)
 }
 
+func getAllIds() []string {
+	entries, err := os.ReadDir(zetDir)
+	if err != nil {
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+	}
+	ret := []string{}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		id, found := strings.CutSuffix(e.Name(), ".md")
+		if !found {
+			continue
+		}
+		ret = append(ret, id)
+	}
+	return ret
+}
+
 // TODO: open command
 //	- `zet open ID` -> open file in edior
 
