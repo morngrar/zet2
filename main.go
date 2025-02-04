@@ -445,6 +445,10 @@ func OpenCommand() {
 //	- `zet resolve next ID` -> next available file path in sequence of ID
 //	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
 // TODO: zet grep command
+// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and the prefix given is `1.1`
+//	- it may be easy to fix this and introduce more shenanigans...
+//	- perhaps a useful compromise is to allow opening of `1.1.` which then will
+//	  open the first seq in that branch by detecting the trailing period
 
 // 0.2 here
 
