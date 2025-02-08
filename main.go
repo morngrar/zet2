@@ -162,9 +162,9 @@ func BranchCommand() {
 	}
 
 	content := string(byteContent)
-	links := ExtractLinksFromContent(content)
-	branches := FilterBranches(links, parentId)
-	next, err := NextBranch(branches)
+	links := extractLinksFromContent(content)
+	branches := filterBranches(links, parentId)
+	next, err := nextBranch(branches)
 	if err != nil {
 		log.Fatalf("Unable to calculate next branch: %s", err)
 	}
@@ -177,273 +177,121 @@ func BranchCommand() {
 	fmt.Printf("[[%s]]\n", branchId)
 }
 
-func fileExists(filePath string) bool {
-	_, err := os.Stat(filePath)
-	return err == nil || !os.IsNotExist(err)
-}
+func CreateCommand(prefix string) {
 
-func createZettelFile(zettelId string) string {
-	fileName := fmt.Sprintf("%s.md", zettelId)
-	filePath := path.Join(zetDir, fileName)
-
-	if fileExists(filePath) {
-		log.Fatalf("Attempted to create existing file: %s", filePath)
-	}
-
-	f, err := os.Create(filePath)
+	entries, err := os.ReadDir(zetDir)
 	if err != nil {
-		log.Fatalf("Unable to create file '%s': %s", filePath, err)
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
 	}
 
-	ts := timestamp()
-	content := fmt.Sprintf("---\nzettel: %s\ndate: %s\n---\n\n\n\n", zettelId, ts)
-	f.Write([]byte(content))
-	f.Close()
-	return filePath
-}
-
-// ExtractLinksFromContent takes the entire content of a zettel and extracts
-// all links from it, stripping them of markup, leaving only the linked zettel
-// IDs as a string slice.
-func ExtractLinksFromContent(content string) []string {
-	var links []string
-
-	r := regexp.MustCompile(`\[\[(?P<link>[a-zA-Z0-9\.\-\_]+)\]\]`)
-
-	for _, line := range strings.Split(content, "\n") {
-		match := r.FindStringSubmatch(line)
-		if len(match) < 2 {
+	maxNum := 0
+	dotSeparated := true
+	numberPrefix := unicode.IsDigit(rune(prefix[len(prefix)-1]))
+	for _, e := range entries {
+		if e.IsDir() {
 			continue
 		}
-		links = append(links, match[1])
-	}
 
-	return links
-}
-
-// FilterBranches takes a slice of links (as stripped zettel IDs) and a zettel
-// ID, and filters out all links that are not direct branches of the zettel ID.
-func FilterBranches(links []string, parentId string) []string {
-	var branches []string
-
-	split := strings.Split(parentId, ".")
-
-	// Branches are always alphabetically suffixed. links to specific zettels
-	// in a branch have the sequence number
-	r := regexp.MustCompile(
-		fmt.Sprintf(`%v\.(?P<branch>%v[a-z]+$)`, split[0], split[1]),
-	)
-
-	for _, l := range links {
-		match := r.FindStringSubmatch(l)
-		if len(match) > 1 {
-			branch := fmt.Sprintf("%v.%v", split[0], match[1])
-			branches = append(branches, branch)
+		suffix, found := strings.CutPrefix(e.Name(), prefix)
+		if !found {
+			continue
 		}
-	}
 
-	return branches
-}
+		if suffix[0] == '.' {
+			suffix = suffix[1:]
+		} else {
+			if !numberPrefix {
+				dotSeparated = false
+			}
+		}
 
-// NextBranch takes a list of sibling zettel IDs and returns the ID of the next
-// upcoming branch on the parent zettel, as well as an error. In the case of an
-// empty slice (no other children of current zettel), returns an 'a'.
-func NextBranch(branches []string) (string, error) {
+		if !unicode.IsDigit(rune(suffix[0])) {
+			continue
+		}
 
-	// the first branch will always be 'a' in a numbered sceme
-	if len(branches) == 0 {
-		return "a", nil
-	}
+		id, _ := strings.CutSuffix(suffix, ".md")
 
-	var err error
-
-	var isDigits bool
-	maxChars := ""
-	for _, branch := range branches {
-		_, branch, isDigits, err = StripLeaf(branch)
+		num, err := strconv.Atoi(id)
 		if err != nil {
-			return "", fmt.Errorf("unable to strip branch leaf: %w", err)
+			log.Printf("unable to parse number: %s", err)
 		}
-
-		// TODO: clean this up
-		if isDigits {
-			panic("Attempting to process branch that ends in a number. This is no longer applicable, and there must have happened a programming error. This is a bug.")
-		} else {
-			maxChars, err = AlphaMax(maxChars, branch)
-			if err != nil {
-				return "", err
-			}
+		if num > maxNum {
+			maxNum = num
 		}
 	}
 
-	if maxChars == "" {
-		panic("highest branch number not detected after iterating through all given branches in NextBranch")
+	var zettelId string
+	if dotSeparated {
+		zettelId = fmt.Sprintf("%s.%d", prefix, maxNum+1)
+	} else {
+		zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
 	}
 
-	nextAlphaBranch, err := IncrementAlphaBranch(maxChars)
-	if err != nil {
-		return "", fmt.Errorf("unable to increment leaf: %w", err)
-	}
-	return nextAlphaBranch, nil
+	filePath := createZettelFile(zettelId)
+
+	openInEditor(filePath)
 }
 
-// StripLeaf takes a zettel ID and strips the leaf branch off it, splitting the
-// ID into its parent and child components.
-//
-// E.g: tmp.12.321aa32c69 -> 'tmp.12.321aa32c', '69'
-//
-// Returns base, branch, a boolean stating if the stripped leaf was numeric or
-// not, and potentially an error.
-func StripLeaf(id string) (string, string, bool, error) {
-	var base string
-	var branch string
-	var isDigits bool
-	var err error
-
-	runes := []rune(id)
-	lastRune := runes[len(runes)-1]
-	isDigits = unicode.IsDigit(lastRune)
-
-	i := -2
-	for unicode.IsDigit(runes[len(runes)+i]) == isDigits && i+len(runes) > 0 {
-		i -= 1
+func GrepCommand() {
+	grepTerm := shift(&os.Args)
+	re, err := regexp.Compile(grepTerm)
+	if err != nil {
+		log.Fatalf("Unable to compile regex term: %s", err)
 	}
 
-	base = id[:len(runes)+i+1]
-	branch = id[len(runes)+i+1:]
+	terminalWidth, _, err := term.GetSize(0)
+	if err != nil {
+		panic(err)
+	}
 
-	return base, branch, isDigits, err
+	entries, err := os.ReadDir(zetDir)
+	if err != nil {
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		id, found := strings.CutSuffix(e.Name(), ".md")
+		if !found {
+			continue
+		}
+
+		contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
+		if err != nil {
+			panic(err)
+		}
+		if re.Match(contentBytes) {
+			content := string(contentBytes)
+			for _, line := range strings.Split(content, "\n") {
+				if re.MatchString(line) {
+					prefix := fmt.Sprintf("%s: ", id)
+					truncLimit := terminalWidth - len(prefix)
+					line = strings.TrimSpace(line)
+					if len(line) > truncLimit {
+						line = line[:truncLimit-3] + "..."
+					}
+					fmt.Printf("%s%s\n", prefix, line)
+				}
+			}
+		}
+	}
 }
 
-// AlphaMax takes two alphabetic strings and returns the one with the highest
-// lexical value. Returns error if the strings are equal.
-func AlphaMax(a, b string) (string, error) {
-	if len(b) < len(a) {
-		return a, nil
-	}
-	if len(a) < len(b) {
-		return b, nil
+func OpenCommand() {
+	id := shift(&os.Args)
+
+	if !unicode.IsDigit(rune(id[len(id)-1])) {
+		// not a sequence no. so must be branch
+		id = getFirstSeqInBranch(id)
 	}
 
-	for i := 0; i < len(a); i++ {
-		if a[i] > b[i] {
-			return a, nil
-		}
-		if a[i] < b[i] {
-			return b, nil
-		}
+	filePath := path.Join(zetDir, id+".md")
+	if !fileExists(filePath) {
+		log.Fatalf("File doesn't exist: %q", filePath)
 	}
 
-	return "", errors.New(fmt.Sprintf("%q and %q seem to be equal", a, b))
-}
-
-// IncrementAlphaBranch takes a zettel ID that ends in an alphabetic character
-// and returns its zettelkasten-ID increment. E.g: tmp.1a -> tmp.1b. Returns
-// error on invalid input.
-func IncrementAlphaBranch(id string) (string, error) {
-	var alphabet = "abcdefghijklmnopqrstuvwxyz"
-
-	if id[len(id)-1:] == "z" {
-		return id + "a", nil // z -> za
-	}
-
-	for i, r := range alphabet {
-		if string(r) == id[len(id)-1:] {
-			return id[:len(id)-1] + string(alphabet[i+1]), nil
-		}
-	}
-
-	return id, errors.New("invalid branch string")
-}
-
-func determineNextZet(id string) (nextId string, nextPath string, err error) {
-	base, seq, _, err := StripLeaf(id)
-	if err != nil {
-		return nextId, nextPath, err
-	}
-
-	seqNum, err := strconv.Atoi(seq)
-	if err != nil {
-		return nextId, nextPath, err
-	}
-
-	nextId = fmt.Sprintf("%s%d", base, seqNum+1)
-	nextPath = path.Join(zetDir, nextId+".md")
-
-	if !fileExists(nextPath) {
-		if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
-
-			err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
-		} else {
-			err = fmt.Errorf("next file %q doesn't exist", nextPath)
-		}
-		return nextId, nextPath, err
-	}
-
-	return nextId, nextPath, nil
-}
-
-func determinePrevZet(id string) (prevId string, prevPath string, err error) {
-	base, seq, _, err := StripLeaf(id)
-	if err != nil {
-		return prevId, prevPath, err
-	}
-
-	seqNum, err := strconv.Atoi(seq)
-	if err != nil {
-		return prevId, prevPath, err
-	}
-
-	prevNum := seqNum - 1
-	if prevNum < 1 {
-
-		prevId = fmt.Sprintf("%s%d", base, prevNum)
-		prevPath = path.Join(zetDir, prevId+".md")
-		if !fileExists(prevPath) {
-			prevId = fmt.Sprintf("%s%d", base, 0)
-			base, _, isDigit, err := StripLeaf(prevId)
-			if err != nil {
-				return prevId, prevPath, err
-			}
-			if !isDigit {
-				return "", "", fmt.Errorf("branch seems to be numeric. Cannot resolve parent")
-			}
-
-			base, seq, isDigit, err = StripLeaf(base)
-			if err != nil {
-				return prevId, prevPath, err
-			}
-			if isDigit {
-				return "", "", fmt.Errorf("branch seems to be numeric despite leaf being numeric, cannot resolve parent")
-			}
-
-			prevId = base
-			prevPath = path.Join(zetDir, prevId+".md")
-			if !fileExists(prevPath) {
-				err = fmt.Errorf("previous file %q doesn't exist", prevPath)
-				return prevId, prevPath, err
-			}
-		}
-		return prevId, prevPath, nil
-
-	}
-
-	prevId = fmt.Sprintf("%s%d", base, prevNum)
-	prevPath = path.Join(zetDir, prevId+".md")
-	if !fileExists(prevPath) {
-
-		//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
-		if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
-
-			err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
-		} else {
-
-			err = fmt.Errorf("previous file %q doesn't exist", prevPath)
-		}
-		return prevId, prevPath, err
-	}
-
-	return prevId, prevPath, nil
+	openInEditor(filePath)
 }
 
 func ResolveCommand() {
@@ -516,6 +364,186 @@ func ResolveCommand() {
 	fmt.Println(filePath)
 }
 
+// alphaMax takes two alphabetic strings and returns the one with the highest
+// lexical value. Returns error if the strings are equal.
+func alphaMax(a, b string) (string, error) {
+	if len(b) < len(a) {
+		return a, nil
+	}
+	if len(a) < len(b) {
+		return b, nil
+	}
+
+	for i := 0; i < len(a); i++ {
+		if a[i] > b[i] {
+			return a, nil
+		}
+		if a[i] < b[i] {
+			return b, nil
+		}
+	}
+
+	return "", errors.New(fmt.Sprintf("%q and %q seem to be equal", a, b))
+}
+
+func createZettelFile(zettelId string) string {
+	fileName := fmt.Sprintf("%s.md", zettelId)
+	filePath := path.Join(zetDir, fileName)
+
+	if fileExists(filePath) {
+		log.Fatalf("Attempted to create existing file: %s", filePath)
+	}
+
+	f, err := os.Create(filePath)
+	if err != nil {
+		log.Fatalf("Unable to create file '%s': %s", filePath, err)
+	}
+
+	ts := timestamp()
+	content := fmt.Sprintf("---\nzettel: %s\ndate: %s\n---\n\n\n\n", zettelId, ts)
+	f.Write([]byte(content))
+	f.Close()
+	return filePath
+}
+
+func determineNextZet(id string) (nextId string, nextPath string, err error) {
+	base, seq, _, err := stripLeaf(id)
+	if err != nil {
+		return nextId, nextPath, err
+	}
+
+	seqNum, err := strconv.Atoi(seq)
+	if err != nil {
+		return nextId, nextPath, err
+	}
+
+	nextId = fmt.Sprintf("%s%d", base, seqNum+1)
+	nextPath = path.Join(zetDir, nextId+".md")
+
+	if !fileExists(nextPath) {
+		if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
+
+			err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
+		} else {
+			err = fmt.Errorf("next file %q doesn't exist", nextPath)
+		}
+		return nextId, nextPath, err
+	}
+
+	return nextId, nextPath, nil
+}
+
+func determinePrevZet(id string) (prevId string, prevPath string, err error) {
+	base, seq, _, err := stripLeaf(id)
+	if err != nil {
+		return prevId, prevPath, err
+	}
+
+	seqNum, err := strconv.Atoi(seq)
+	if err != nil {
+		return prevId, prevPath, err
+	}
+
+	prevNum := seqNum - 1
+	if prevNum < 1 {
+
+		prevId = fmt.Sprintf("%s%d", base, prevNum)
+		prevPath = path.Join(zetDir, prevId+".md")
+		if !fileExists(prevPath) {
+			prevId = fmt.Sprintf("%s%d", base, 0)
+			base, _, isDigit, err := stripLeaf(prevId)
+			if err != nil {
+				return prevId, prevPath, err
+			}
+			if !isDigit {
+				return "", "", fmt.Errorf("branch seems to be numeric. Cannot resolve parent")
+			}
+
+			base, seq, isDigit, err = stripLeaf(base)
+			if err != nil {
+				return prevId, prevPath, err
+			}
+			if isDigit {
+				return "", "", fmt.Errorf("branch seems to be numeric despite leaf being numeric, cannot resolve parent")
+			}
+
+			prevId = base
+			prevPath = path.Join(zetDir, prevId+".md")
+			if !fileExists(prevPath) {
+				err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+				return prevId, prevPath, err
+			}
+		}
+		return prevId, prevPath, nil
+
+	}
+
+	prevId = fmt.Sprintf("%s%d", base, prevNum)
+	prevPath = path.Join(zetDir, prevId+".md")
+	if !fileExists(prevPath) {
+
+		//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
+		if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
+
+			err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
+		} else {
+
+			err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+		}
+		return prevId, prevPath, err
+	}
+
+	return prevId, prevPath, nil
+}
+
+// extractLinksFromContent takes the entire content of a zettel and extracts
+// all links from it, stripping them of markup, leaving only the linked zettel
+// IDs as a string slice.
+func extractLinksFromContent(content string) []string {
+	var links []string
+
+	r := regexp.MustCompile(`\[\[(?P<link>[a-zA-Z0-9\.\-\_]+)\]\]`)
+
+	for _, line := range strings.Split(content, "\n") {
+		match := r.FindStringSubmatch(line)
+		if len(match) < 2 {
+			continue
+		}
+		links = append(links, match[1])
+	}
+
+	return links
+}
+
+func fileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+	return err == nil || !os.IsNotExist(err)
+}
+
+// filterBranches takes a slice of links (as stripped zettel IDs) and a zettel
+// ID, and filters out all links that are not direct branches of the zettel ID.
+func filterBranches(links []string, parentId string) []string {
+	var branches []string
+
+	split := strings.Split(parentId, ".")
+
+	// Branches are always alphabetically suffixed. links to specific zettels
+	// in a branch have the sequence number
+	r := regexp.MustCompile(
+		fmt.Sprintf(`%v\.(?P<branch>%v[a-z]+$)`, split[0], split[1]),
+	)
+
+	for _, l := range links {
+		match := r.FindStringSubmatch(l)
+		if len(match) > 1 {
+			branch := fmt.Sprintf("%v.%v", split[0], match[1])
+			branches = append(branches, branch)
+		}
+	}
+
+	return branches
+}
+
 func getAllIds() []string {
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
@@ -541,7 +569,7 @@ func getFirstSeqInBranch(id string) string {
 	minSeq := maxSeqVal
 	for _, e := range allIds {
 		if strings.HasPrefix(e, id) {
-			base, seq, _, err := StripLeaf(e)
+			base, seq, _, err := stripLeaf(e)
 			if err != nil {
 				panic(err)
 			}
@@ -561,7 +589,6 @@ func getFirstSeqInBranch(id string) string {
 			if n < minSeq {
 				minSeq = n
 			}
-
 		}
 	}
 	if minSeq == maxSeqVal {
@@ -572,68 +599,141 @@ func getFirstSeqInBranch(id string) string {
 	return id
 }
 
-func OpenCommand() {
+// incrementAlphaBranch takes a zettel ID that ends in an alphabetic character
+// and returns its zettelkasten-ID increment. E.g: tmp.1a -> tmp.1b. Returns
+// error on invalid input.
+func incrementAlphaBranch(id string) (string, error) {
+	var alphabet = "abcdefghijklmnopqrstuvwxyz"
 
-	id := shift(&os.Args)
-
-	if !unicode.IsDigit(rune(id[len(id)-1])) {
-		// not a sequence no. so must be branch
-		id = getFirstSeqInBranch(id)
+	if id[len(id)-1:] == "z" {
+		return id + "a", nil // z -> za
 	}
 
-	filePath := path.Join(zetDir, id+".md")
-	if !fileExists(filePath) {
-		log.Fatalf("File doesn't exist: %q", filePath)
+	for i, r := range alphabet {
+		if string(r) == id[len(id)-1:] {
+			return id[:len(id)-1] + string(alphabet[i+1]), nil
+		}
 	}
 
-	openInEditor(filePath)
-
+	return id, errors.New("invalid branch string")
 }
 
-func GrepCommand() {
-	grepTerm := shift(&os.Args)
-	re, err := regexp.Compile(grepTerm)
-	if err != nil {
-		log.Fatalf("Unable to compile regex term: %s", err)
+// nextBranch takes a list of sibling zettel IDs and returns the ID of the next
+// upcoming branch on the parent zettel, as well as an error. In the case of an
+// empty slice (no other children of current zettel), returns an 'a'.
+func nextBranch(branches []string) (string, error) {
+
+	// the first branch will always be 'a' in a numbered sceme
+	if len(branches) == 0 {
+		return "a", nil
 	}
 
-	terminalWidth, _, err := term.GetSize(0)
-	if err != nil {
-		panic(err)
-	}
+	var err error
 
-	entries, err := os.ReadDir(zetDir)
-	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		id, found := strings.CutSuffix(e.Name(), ".md")
-		if !found {
-			continue
-		}
-
-		contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
+	var isDigits bool
+	maxChars := ""
+	for _, branch := range branches {
+		_, branch, isDigits, err = stripLeaf(branch)
 		if err != nil {
-			panic(err)
+			return "", fmt.Errorf("unable to strip branch leaf: %w", err)
 		}
-		if re.Match(contentBytes) {
-			content := string(contentBytes)
-			for _, line := range strings.Split(content, "\n") {
-				if re.MatchString(line) {
-					prefix := fmt.Sprintf("%s: ", id)
-					truncLimit := terminalWidth - len(prefix)
-					line = strings.TrimSpace(line)
-					if len(line) > truncLimit {
-						line = line[:truncLimit-3] + "..."
-					}
-					fmt.Printf("%s%s\n", prefix, line)
-				}
+
+		// TODO: clean this up
+		if isDigits {
+			panic("Attempting to process branch that ends in a number. This is no longer applicable, and there must have happened a programming error. This is a bug.")
+		} else {
+			maxChars, err = alphaMax(maxChars, branch)
+			if err != nil {
+				return "", err
 			}
 		}
 	}
+
+	if maxChars == "" {
+		panic("highest branch number not detected after iterating through all given branches in NextBranch")
+	}
+
+	nextAlphaBranch, err := incrementAlphaBranch(maxChars)
+	if err != nil {
+		return "", fmt.Errorf("unable to increment leaf: %w", err)
+	}
+	return nextAlphaBranch, nil
+}
+
+func openInEditor(path string) {
+	var cmd *exec.Cmd
+	if editor == "vim" || editor == "nvim" {
+		cmd = exec.Command(editor, "+6", "-c", "startinsert", path)
+	} else {
+		cmd = exec.Command(editor, "+6", path)
+	}
+
+	cmd.Stdin = os.Stdin
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalf("Unable to run editor (%s) command: %s", editor, err)
+	}
+}
+
+func putOnClipBoard(text string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+
+	case "linux":
+		cmd = exec.Command("xclip", "-selection", "clipboard")
+	case "darwin":
+		cmd = exec.Command("pbcopy")
+	default:
+		return fmt.Errorf("Adding stuff to clipboard is not implemented on your platform")
+	}
+
+	buf := bytes.NewBuffer([]byte(text))
+	cmd.Stdin = buf
+	return cmd.Run()
+}
+
+func shift(stringSlice *[]string) string {
+	ret := (*stringSlice)[0]
+	*stringSlice = (*stringSlice)[1:]
+	return ret
+}
+
+// stripLeaf takes a zettel ID and strips the leaf branch off it, splitting the
+// ID into its parent and child components.
+//
+// E.g: tmp.12.321aa32c69 -> 'tmp.12.321aa32c', '69'
+//
+// Returns base, branch, a boolean stating if the stripped leaf was numeric or
+// not, and potentially an error.
+func stripLeaf(id string) (string, string, bool, error) {
+	var base string
+	var branch string
+	var isDigits bool
+	var err error
+
+	runes := []rune(id)
+	lastRune := runes[len(runes)-1]
+	isDigits = unicode.IsDigit(lastRune)
+
+	i := -2
+	for unicode.IsDigit(runes[len(runes)+i]) == isDigits && i+len(runes) > 0 {
+		i -= 1
+	}
+
+	base = id[:len(runes)+i+1]
+	branch = id[len(runes)+i+1:]
+
+	return base, branch, isDigits, err
+}
+
+func timestamp() string {
+	format := "Mon 2006-01-02 15:04:05 MST"
+	now := time.Now()
+	ts := now.Format(format)
+	return ts
 }
 
 // TODO: code cleanup/refactoring
@@ -675,142 +775,3 @@ func GrepCommand() {
 //	- look at gh for rendering markdown
 //	- look at logbrowser for the tui stuff, dont overcomplicate
 // TODO: more sophisticated search
-
-func CreateCommand(prefix string) {
-
-	entries, err := os.ReadDir(zetDir)
-	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
-	}
-
-	maxNum := 0
-	dotSeparated := true
-	numberPrefix := unicode.IsDigit(rune(prefix[len(prefix)-1]))
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-
-		suffix, found := strings.CutPrefix(e.Name(), prefix)
-		if !found {
-			continue
-		}
-
-		if suffix[0] == '.' {
-			suffix = suffix[1:]
-		} else {
-			if !numberPrefix {
-				dotSeparated = false
-			}
-		}
-
-		if !unicode.IsDigit(rune(suffix[0])) {
-			continue
-		}
-
-		id, _ := strings.CutSuffix(suffix, ".md")
-
-		num, err := strconv.Atoi(id)
-		if err != nil {
-			log.Printf("unable to parse number: %s", err)
-		}
-		if num > maxNum {
-			maxNum = num
-		}
-	}
-
-	var zettelId string
-	if dotSeparated {
-		zettelId = fmt.Sprintf("%s.%d", prefix, maxNum+1)
-	} else {
-		zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
-	}
-
-	filePath := createZettelFile(zettelId)
-
-	openInEditor(filePath)
-}
-
-func openInEditor(path string) {
-	var cmd *exec.Cmd
-	if editor == "vim" || editor == "nvim" {
-		cmd = exec.Command(editor, "+6", "-c", "startinsert", path)
-	} else {
-		cmd = exec.Command(editor, "+6", path)
-	}
-
-	cmd.Stdin = os.Stdin
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("Unable to run editor (%s) command: %s", editor, err)
-	}
-}
-
-func putOnClipBoard(text string) error {
-	var cmd *exec.Cmd
-	switch runtime.GOOS {
-
-	case "linux":
-		cmd = exec.Command("xclip", "-selection", "clipboard")
-	case "darwin":
-		cmd = exec.Command("pbcopy")
-	default:
-		return fmt.Errorf("Adding stuff to clipboard is not implemented on your platform")
-	}
-
-	buf := bytes.NewBuffer([]byte(text))
-	cmd.Stdin = buf
-	return cmd.Run()
-}
-
-func timestamp() string {
-	format := "Mon 2006-01-02 15:04:05 MST"
-	now := time.Now()
-	ts := now.Format(format)
-	return ts
-}
-
-func shift(stringSlice *[]string) string {
-	ret := (*stringSlice)[0]
-	*stringSlice = (*stringSlice)[1:]
-	return ret
-}
-
-// handleCompletion provides simple autocompletion.
-func handleCompletion(completions ...string) bool {
-
-	// Get the current word being completed
-	words := strings.Fields(os.Getenv("COMP_LINE"))
-
-	// If there are no words yet, print all possible completions
-	if len(words) == 1 {
-		for _, c := range completions {
-			fmt.Println(c)
-		}
-		return false
-	}
-
-	lastWord := words[len(words)-1]
-
-	// stop if exact match found
-	for _, c := range completions {
-		if len(c) != len(lastWord) {
-			continue
-		}
-
-		if c == lastWord {
-			return true // completion has complete match
-		}
-	}
-
-	for _, c := range completions {
-		if strings.HasPrefix(c, lastWord) {
-			fmt.Println(c)
-		}
-	}
-
-	return false
-}
