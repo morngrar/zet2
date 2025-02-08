@@ -86,7 +86,7 @@ func main() {
 		// add checks for supported singular commands here
 		for _, e := range []string{"version", "--version", "-v"} {
 			if e == os.Args[0] {
-				fmt.Printf("zet2 version: %s, Copyright 2025 S. Bjørnsen\n", version)
+				fmt.Printf("zet2 %s, Copyright 2025 S. Bjørnsen\n", version)
 				return
 			}
 		}
