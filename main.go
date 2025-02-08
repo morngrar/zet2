@@ -350,7 +350,7 @@ func IncrementAlphaBranch(id string) (string, error) {
 	return id, errors.New("invalid branch string")
 }
 
-func determineNextZet(id string) (nextId, nextPath string, err error) {
+func determineNextZet(id string) (nextId string, nextPath string, err error) {
 	base, seq, _, err := StripLeaf(id)
 	if err != nil {
 		return nextId, nextPath, err
@@ -371,6 +371,34 @@ func determineNextZet(id string) (nextId, nextPath string, err error) {
 
 	return nextId, nextPath, nil
 }
+
+func determinePrevZet(id string) (prevId string, prevPath string, err error) {
+	base, seq, _, err := StripLeaf(id)
+	if err != nil {
+		return prevId, prevPath, err
+	}
+
+	seqNum, err := strconv.Atoi(seq)
+	if err != nil {
+		return prevId, prevPath, err
+	}
+
+	nextNum := seqNum - 1
+	if nextNum < 1 {
+		return "", "", fmt.Errorf("skipping up to parent branch not implemented")
+	}
+
+	prevId = fmt.Sprintf("%s%d", base, nextNum)
+	prevPath = path.Join(zetDir, prevId+".md")
+
+	if !fileExists(prevPath) {
+		err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+		return prevId, prevPath, err
+	}
+
+	return prevId, prevPath, nil
+}
+
 func ResolveCommand() {
 	id := shift(&os.Args)
 	if id == "next" {
@@ -402,7 +430,31 @@ func ResolveCommand() {
 	}
 
 	if id == "previous" {
-		panic("not implemented yet")
+		pathOrId := shift(&os.Args)
+		if pathOrId == "path" {
+			zetPath := shift(&os.Args)
+			base := path.Base(zetPath)
+			id, extFound := strings.CutSuffix(base, ".md")
+			if !extFound {
+				log.Fatalf("given file did not have expected extension: %q", base)
+			}
+			_, prevPath, err := determinePrevZet(id)
+			if err != nil {
+				log.Fatalf("Error determining next id: %s", err)
+				//TODO: give usage info instead of just crashing
+			}
+			fmt.Println(prevPath)
+			return
+		} else {
+			id := pathOrId
+			prevId, _, err := determinePrevZet(id)
+			if err != nil {
+				log.Fatalf("Error determining previous id: %s", err)
+				//TODO: give usage info instead of just crashing
+			}
+			fmt.Println(prevId)
+			return
+		}
 	}
 
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
