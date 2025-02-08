@@ -154,8 +154,6 @@ func BranchCommand() {
 
 	fileName := fmt.Sprintf("%s.md", parentId)
 	filePath := path.Join(zetDir, fileName)
-
-	// read in the file
 	byteContent, err := os.ReadFile(filePath)
 	if err != nil {
 		log.Fatalf("Unable to open parent '%s' for branching: %s", filePath, err)
@@ -168,9 +166,7 @@ func BranchCommand() {
 	if err != nil {
 		log.Fatalf("Unable to calculate next branch: %s", err)
 	}
-
 	branchId := parentId + next
-
 	createZettelFile(branchId + "1") // start branches on sequence no. 1
 
 	// output branch link
@@ -178,12 +174,10 @@ func BranchCommand() {
 }
 
 func CreateCommand(prefix string) {
-
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
 		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
 	}
-
 	maxNum := 0
 	dotSeparated := true
 	numberPrefix := unicode.IsDigit(rune(prefix[len(prefix)-1]))
@@ -191,12 +185,10 @@ func CreateCommand(prefix string) {
 		if e.IsDir() {
 			continue
 		}
-
 		suffix, found := strings.CutPrefix(e.Name(), prefix)
 		if !found {
 			continue
 		}
-
 		if suffix[0] == '.' {
 			suffix = suffix[1:]
 		} else {
@@ -204,13 +196,10 @@ func CreateCommand(prefix string) {
 				dotSeparated = false
 			}
 		}
-
 		if !unicode.IsDigit(rune(suffix[0])) {
 			continue
 		}
-
 		id, _ := strings.CutSuffix(suffix, ".md")
-
 		num, err := strconv.Atoi(id)
 		if err != nil {
 			log.Printf("unable to parse number: %s", err)
@@ -226,9 +215,7 @@ func CreateCommand(prefix string) {
 	} else {
 		zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
 	}
-
 	filePath := createZettelFile(zettelId)
-
 	openInEditor(filePath)
 }
 
@@ -238,12 +225,10 @@ func GrepCommand() {
 	if err != nil {
 		log.Fatalf("Unable to compile regex term: %s", err)
 	}
-
 	terminalWidth, _, err := term.GetSize(0)
 	if err != nil {
 		panic(err)
 	}
-
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
 		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
@@ -256,7 +241,6 @@ func GrepCommand() {
 		if !found {
 			continue
 		}
-
 		contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
 		if err != nil {
 			panic(err)
@@ -280,17 +264,14 @@ func GrepCommand() {
 
 func OpenCommand() {
 	id := shift(&os.Args)
-
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
 		// not a sequence no. so must be branch
 		id = getFirstSeqInBranch(id)
 	}
-
 	filePath := path.Join(zetDir, id+".md")
 	if !fileExists(filePath) {
 		log.Fatalf("File doesn't exist: %q", filePath)
 	}
-
 	openInEditor(filePath)
 }
 
@@ -351,16 +332,13 @@ func ResolveCommand() {
 			return
 		}
 	}
-
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
 		id = getFirstSeqInBranch(id)
 	}
-
 	filePath := path.Join(zetDir, id+".md")
 	if !fileExists(filePath) {
 		log.Fatalf("file does not exist: %q", filePath)
 	}
-
 	fmt.Println(filePath)
 }
 
@@ -373,7 +351,6 @@ func alphaMax(a, b string) (string, error) {
 	if len(a) < len(b) {
 		return b, nil
 	}
-
 	for i := 0; i < len(a); i++ {
 		if a[i] > b[i] {
 			return a, nil
@@ -382,18 +359,15 @@ func alphaMax(a, b string) (string, error) {
 			return b, nil
 		}
 	}
-
 	return "", errors.New(fmt.Sprintf("%q and %q seem to be equal", a, b))
 }
 
 func createZettelFile(zettelId string) string {
 	fileName := fmt.Sprintf("%s.md", zettelId)
 	filePath := path.Join(zetDir, fileName)
-
 	if fileExists(filePath) {
 		log.Fatalf("Attempted to create existing file: %s", filePath)
 	}
-
 	f, err := os.Create(filePath)
 	if err != nil {
 		log.Fatalf("Unable to create file '%s': %s", filePath, err)
@@ -422,14 +396,12 @@ func determineNextZet(id string) (nextId string, nextPath string, err error) {
 
 	if !fileExists(nextPath) {
 		if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
-
 			err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
 		} else {
 			err = fmt.Errorf("next file %q doesn't exist", nextPath)
 		}
 		return nextId, nextPath, err
 	}
-
 	return nextId, nextPath, nil
 }
 
@@ -446,7 +418,6 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 
 	prevNum := seqNum - 1
 	if prevNum < 1 {
-
 		prevId = fmt.Sprintf("%s%d", base, prevNum)
 		prevPath = path.Join(zetDir, prevId+".md")
 		if !fileExists(prevPath) {
@@ -458,7 +429,6 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 			if !isDigit {
 				return "", "", fmt.Errorf("branch seems to be numeric. Cannot resolve parent")
 			}
-
 			base, seq, isDigit, err = stripLeaf(base)
 			if err != nil {
 				return prevId, prevPath, err
@@ -466,7 +436,6 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 			if isDigit {
 				return "", "", fmt.Errorf("branch seems to be numeric despite leaf being numeric, cannot resolve parent")
 			}
-
 			prevId = base
 			prevPath = path.Join(zetDir, prevId+".md")
 			if !fileExists(prevPath) {
@@ -475,19 +444,15 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 			}
 		}
 		return prevId, prevPath, nil
-
 	}
 
 	prevId = fmt.Sprintf("%s%d", base, prevNum)
 	prevPath = path.Join(zetDir, prevId+".md")
 	if !fileExists(prevPath) {
-
 		//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
 		if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
-
 			err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
 		} else {
-
 			err = fmt.Errorf("previous file %q doesn't exist", prevPath)
 		}
 		return prevId, prevPath, err
@@ -501,9 +466,7 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 // IDs as a string slice.
 func extractLinksFromContent(content string) []string {
 	var links []string
-
 	r := regexp.MustCompile(`\[\[(?P<link>[a-zA-Z0-9\.\-\_]+)\]\]`)
-
 	for _, line := range strings.Split(content, "\n") {
 		match := r.FindStringSubmatch(line)
 		if len(match) < 2 {
@@ -511,7 +474,6 @@ func extractLinksFromContent(content string) []string {
 		}
 		links = append(links, match[1])
 	}
-
 	return links
 }
 
@@ -523,16 +485,14 @@ func fileExists(filePath string) bool {
 // filterBranches takes a slice of links (as stripped zettel IDs) and a zettel
 // ID, and filters out all links that are not direct branches of the zettel ID.
 func filterBranches(links []string, parentId string) []string {
-	var branches []string
-
-	split := strings.Split(parentId, ".")
-
 	// Branches are always alphabetically suffixed. links to specific zettels
 	// in a branch have the sequence number
+	split := strings.Split(parentId, ".")
 	r := regexp.MustCompile(
 		fmt.Sprintf(`%v\.(?P<branch>%v[a-z]+$)`, split[0], split[1]),
 	)
 
+	var branches []string
 	for _, l := range links {
 		match := r.FindStringSubmatch(l)
 		if len(match) > 1 {
@@ -580,12 +540,10 @@ func getFirstSeqInBranch(id string) string {
 			if err != nil {
 				panic(err)
 			}
-
 			if n == 0 {
 				minSeq = n
 				break // cant go lower, stop search
 			}
-
 			if n < minSeq {
 				minSeq = n
 			}
@@ -594,7 +552,6 @@ func getFirstSeqInBranch(id string) string {
 	if minSeq == maxSeqVal {
 		log.Fatalf("Unable to find branch: %q", id)
 	}
-
 	id = fmt.Sprintf("%s%d", id, minSeq)
 	return id
 }
@@ -735,8 +692,6 @@ func timestamp() string {
 	ts := now.Format(format)
 	return ts
 }
-
-// TODO: code cleanup/refactoring
 
 // BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and the prefix given is `1.1`
 //	- it may be easy to fix this and introduce more shenanigans...
