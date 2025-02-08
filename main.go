@@ -412,12 +412,9 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 				err = fmt.Errorf("previous file %q doesn't exist", prevPath)
 				return prevId, prevPath, err
 			}
-
-			return prevId, prevPath, nil
-
 		}
+		return prevId, prevPath, nil
 
-		return "", "", fmt.Errorf("skipping up to parent branch not implemented")
 	}
 
 	prevId = fmt.Sprintf("%s%d", base, prevNum)
