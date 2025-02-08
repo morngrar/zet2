@@ -365,7 +365,12 @@ func determineNextZet(id string) (nextId string, nextPath string, err error) {
 	nextPath = path.Join(zetDir, nextId+".md")
 
 	if !fileExists(nextPath) {
-		err = fmt.Errorf("next file %q doesn't exist", nextPath)
+		if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
+
+			err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
+		} else {
+			err = fmt.Errorf("next file %q doesn't exist", nextPath)
+		}
 		return nextId, nextPath, err
 	}
 
@@ -420,7 +425,15 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 	prevId = fmt.Sprintf("%s%d", base, prevNum)
 	prevPath = path.Join(zetDir, prevId+".md")
 	if !fileExists(prevPath) {
-		err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+
+		//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
+		if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
+
+			err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
+		} else {
+
+			err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+		}
 		return prevId, prevPath, err
 	}
 
