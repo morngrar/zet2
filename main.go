@@ -14,6 +14,8 @@ import (
 	"strings"
 	"time"
 	"unicode"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var editor = os.Getenv("EDITOR")
@@ -25,6 +27,7 @@ var version = "v0.1.2"
 // subcommands
 var reservedPrefixes = []string{
 	"branch",
+	"grep",
 	"next",
 	"previous",
 	"version",
@@ -123,6 +126,11 @@ func main() {
 			panic("TODO: implement usage: need to pass id to open")
 		}
 		OpenCommand()
+	case "grep":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass id to open")
+		}
+		GrepCommand()
 	}
 }
 
@@ -584,7 +592,51 @@ func OpenCommand() {
 
 }
 
-// TODO: zet grep command
+func GrepCommand() {
+	term := shift(&os.Args)
+	re, err := regexp.Compile(term)
+	if err != nil {
+		log.Fatalf("Unable to compile regex term: %s", err)
+	}
+
+	terminalWidth, _, err := terminal.GetSize(0)
+	if err != nil {
+		panic(err)
+	}
+
+	entries, err := os.ReadDir(zetDir)
+	if err != nil {
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		id, found := strings.CutSuffix(e.Name(), ".md")
+		if !found {
+			continue
+		}
+
+		contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
+		if err != nil {
+			panic(err)
+		}
+		if re.Match(contentBytes) {
+			content := string(contentBytes)
+			for _, line := range strings.Split(content, "\n") {
+				if re.MatchString(line) {
+					prefix := fmt.Sprintf("%s: ", id)
+					truncLimit := terminalWidth - len(prefix)
+					line = strings.TrimSpace(line)
+					if len(line) > truncLimit {
+						line = line[:truncLimit-3] + "..."
+					}
+					fmt.Printf("%s%s\n", prefix, line)
+				}
+			}
+		}
+	}
+}
 
 // 0.2 here
 
