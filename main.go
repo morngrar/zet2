@@ -383,14 +383,45 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 		return prevId, prevPath, err
 	}
 
-	nextNum := seqNum - 1
-	if nextNum < 1 {
+	prevNum := seqNum - 1
+	if prevNum < 1 {
+
+		prevId = fmt.Sprintf("%s%d", base, prevNum)
+		prevPath = path.Join(zetDir, prevId+".md")
+		if !fileExists(prevPath) {
+			prevId = fmt.Sprintf("%s%d", base, 0)
+			base, _, isDigit, err := StripLeaf(prevId)
+			if err != nil {
+				return prevId, prevPath, err
+			}
+			if !isDigit {
+				return "", "", fmt.Errorf("branch seems to be numeric. Cannot resolve parent")
+			}
+
+			base, seq, isDigit, err = StripLeaf(base)
+			if err != nil {
+				return prevId, prevPath, err
+			}
+			if isDigit {
+				return "", "", fmt.Errorf("branch seems to be numeric despite leaf being numeric, cannot resolve parent")
+			}
+
+			prevId = base
+			prevPath = path.Join(zetDir, prevId+".md")
+			if !fileExists(prevPath) {
+				err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+				return prevId, prevPath, err
+			}
+
+			return prevId, prevPath, nil
+
+		}
+
 		return "", "", fmt.Errorf("skipping up to parent branch not implemented")
 	}
 
-	prevId = fmt.Sprintf("%s%d", base, nextNum)
+	prevId = fmt.Sprintf("%s%d", base, prevNum)
 	prevPath = path.Join(zetDir, prevId+".md")
-
 	if !fileExists(prevPath) {
 		err = fmt.Errorf("previous file %q doesn't exist", prevPath)
 		return prevId, prevPath, err
