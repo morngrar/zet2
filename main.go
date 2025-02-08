@@ -99,7 +99,7 @@ func main() {
 		return
 	}
 
-	// TODO: subcommand tree
+	//NOTE: subcommand tree
 	switch shift(&os.Args) {
 	case "create":
 		if len(os.Args) == 0 {
@@ -584,22 +584,23 @@ func OpenCommand() {
 
 }
 
-// TODO: resolve navigation
-//	- `zet resolve next ID` -> next available file path in sequence of ID
-//	- `zet resolve previous ID` -> previous available file path in sequence of ID, will go to parent if at top of branch
 // TODO: zet grep command
+
+// 0.2 here
+
 // BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and the prefix given is `1.1`
 //	- it may be easy to fix this and introduce more shenanigans...
 //	- perhaps a useful compromise is to allow opening of `1.1.` which then will
 //	  open the first seq in that branch by detecting the trailing period
 
-// 0.2 here
+// 0.2.1 here
 
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin, ??? on windows
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
 //	- `zet link path PATH` -> [[ID]]
 //	- `zet link srcId destId` -> append dst with link to src on new line
+// TODO: branch subcommand that appends link to new branch in the parent, to be used from cli rather than in-editor
 
 // 0.3 here
 
