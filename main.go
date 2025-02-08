@@ -33,6 +33,7 @@ var reservedPrefixes = []string{
 	"resolve",
 	"open",
 	"help",
+	"path",
 	"--help",
 	"-h",
 }
@@ -349,9 +350,58 @@ func IncrementAlphaBranch(id string) (string, error) {
 	return id, errors.New("invalid branch string")
 }
 
+func determineNextZet(id string) (nextId, nextPath string, err error) {
+	base, seq, _, err := StripLeaf(id)
+	if err != nil {
+		return nextId, nextPath, err
+	}
+
+	seqNum, err := strconv.Atoi(seq)
+	if err != nil {
+		return nextId, nextPath, err
+	}
+
+	nextId = fmt.Sprintf("%s%d", base, seqNum+1)
+	nextPath = path.Join(zetDir, nextId+".md")
+
+	if !fileExists(nextPath) {
+		err = fmt.Errorf("next file %q doesn't exist", nextPath)
+		return nextId, nextPath, err
+	}
+
+	return nextId, nextPath, nil
+}
 func ResolveCommand() {
 	id := shift(&os.Args)
-	if id == "next" || id == "previous" {
+	if id == "next" {
+		pathOrId := shift(&os.Args)
+		if pathOrId == "path" {
+			zetPath := shift(&os.Args)
+			base := path.Base(zetPath)
+			id, extFound := strings.CutSuffix(base, ".md")
+			if !extFound {
+				log.Fatalf("given file did not have expected extension: %q", base)
+			}
+			_, nextPath, err := determineNextZet(id)
+			if err != nil {
+				log.Fatalf("Error determining next id: %s", err)
+				//TODO: give usage info instead of just crashing
+			}
+			fmt.Println(nextPath)
+			return
+		} else {
+			id := pathOrId
+			nextId, _, err := determineNextZet(id)
+			if err != nil {
+				log.Fatalf("Error determining next id: %s", err)
+				//TODO: give usage info instead of just crashing
+			}
+			fmt.Println(nextId)
+			return
+		}
+	}
+
+	if id == "previous" {
 		panic("not implemented yet")
 	}
 
