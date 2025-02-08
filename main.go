@@ -15,7 +15,7 @@ import (
 	"time"
 	"unicode"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var editor = os.Getenv("EDITOR")
@@ -194,6 +194,7 @@ func createZettelFile(zettelId string) string {
 	if err != nil {
 		log.Fatalf("Unable to create file '%s': %s", filePath, err)
 	}
+
 	ts := timestamp()
 	content := fmt.Sprintf("---\nzettel: %s\ndate: %s\n---\n\n\n\n", zettelId, ts)
 	f.Write([]byte(content))
@@ -210,14 +211,11 @@ func ExtractLinksFromContent(content string) []string {
 	r := regexp.MustCompile(`\[\[(?P<link>[a-zA-Z0-9\.\-\_]+)\]\]`)
 
 	for _, line := range strings.Split(content, "\n") {
-
 		match := r.FindStringSubmatch(line)
 		if len(match) < 2 {
 			continue
 		}
-
 		links = append(links, match[1])
-
 	}
 
 	return links
@@ -593,13 +591,13 @@ func OpenCommand() {
 }
 
 func GrepCommand() {
-	term := shift(&os.Args)
-	re, err := regexp.Compile(term)
+	grepTerm := shift(&os.Args)
+	re, err := regexp.Compile(grepTerm)
 	if err != nil {
 		log.Fatalf("Unable to compile regex term: %s", err)
 	}
 
-	terminalWidth, _, err := terminal.GetSize(0)
+	terminalWidth, _, err := term.GetSize(0)
 	if err != nil {
 		panic(err)
 	}
