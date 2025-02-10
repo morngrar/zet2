@@ -21,7 +21,7 @@ import (
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.2.0"
+var version = "v0.2.1"
 
 // prefixes that are disallowed because they will come in conflict with
 // subcommands
