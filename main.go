@@ -485,22 +485,21 @@ func fileExists(filePath string) bool {
 // filterBranches takes a slice of links (as stripped zettel IDs) and a zettel
 // ID, and filters out all links that are not direct branches of the zettel ID.
 func filterBranches(links []string, parentId string) []string {
-	// Branches are always alphabetically suffixed. links to specific zettels
-	// in a branch have the sequence number
-	split := strings.Split(parentId, ".")
-	r := regexp.MustCompile(
-		fmt.Sprintf(`%v\.(?P<branch>%v[a-z]+$)`, split[0], split[1]),
-	)
-
+	// NOTE: Branches are always alphabetically suffixed. links to specific
+	// zettels in a branch have the sequence number
 	var branches []string
 	for _, l := range links {
-		match := r.FindStringSubmatch(l)
-		if len(match) > 1 {
-			branch := fmt.Sprintf("%v.%v", split[0], match[1])
-			branches = append(branches, branch)
+		base, _, digit, err := stripLeaf(l)
+		if err != nil {
+			log.Fatalf("error filtering branch: %s", err)
+		}
+		if digit {
+			continue
+		}
+		if base == parentId {
+			branches = append(branches, l)
 		}
 	}
-
 	return branches
 }
 
