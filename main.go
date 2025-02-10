@@ -699,14 +699,17 @@ func timestamp() string {
 //	- perhaps a useful compromise is to allow opening of `1.1.` which then will
 //	  open the first seq in that branch by detecting the trailing period
 
-// 0.2.1 here
+// 0.2.2 here
 
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin, ??? on windows
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
 //	- `zet link path PATH` -> [[ID]]
 //	- `zet link srcId destId` -> append dst with link to src on new line
-// TODO: branch subcommand that appends link to new branch in the parent, to be used from cli rather than in-editor
+// TODO: branch subcommand that appends link to new branch in the parent, to be
+// used from cli rather than in-editor
+// TODO: resolve branch subcommand that returns branch prefix of given id or
+// path: tmp.1asdf32 -> tmp.1asdf || .../tmp.1asdf32.md -> tmp.1asdf
 
 // 0.3 here
 
