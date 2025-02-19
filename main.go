@@ -23,6 +23,8 @@ var zetDir = "./zettel"
 var defaultPrefix = "tmp"
 var version = "v0.2.1"
 
+var sequenceUpperLimit = 999999
+
 // prefixes that are disallowed because they will come in conflict with
 // subcommands
 var reservedPrefixes = []string{
@@ -45,13 +47,13 @@ func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 	var err error
 
-	if os.Args[0] != "./zet2" { // if not running the command from same dir
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			panic(err)
-		}
-		zetDir = path.Join(homeDir, "zettel2") // NOTE: temporary prod-dir until 1.0, then the trailing 2 will be dropped in command and dir
-	}
+	// if os.Args[0] != "./zet2" { // if not running the command from same dir
+	// 	homeDir, err := os.UserHomeDir()
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// 	zetDir = path.Join(homeDir, "zettel2") // NOTE: temporary prod-dir until 1.0, then the trailing 2 will be dropped in command and dir
+	// }
 
 	err = os.MkdirAll(zetDir, os.ModePerm) // ensures existence of zettel dir
 	if err != nil {
@@ -266,45 +268,85 @@ func OpenCommand() {
 	id := shift(&os.Args)
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
 		// not a sequence no. so must be branch
-		id = getFirstSeqInBranch(id)
+		var err error
+		id, err = getFirstSeqInBranch(id)
+		if err != nil {
+			panic(err) // TODO: dunno if this is the correct spot for the bug
+		}
 	}
+
+	// NOTE: happy path, just open the file
 	filePath := path.Join(zetDir, id+".md")
-	if !fileExists(filePath) {
-
-		// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and
-		// the prefix given is `1.1`
-		// - also affects opening any letter-only prefix:
-		//
-		// ./zet2 open tmp
-		// Unable to find branch: "tmp"
-
-		// find if the entered id is a prefix of a branch
-		allIds := getAllIds()
-		tmp := []string{}
-		for _, e := range allIds {
-			if strings.HasPrefix(e, id) {
-				tmp = append(tmp, e)
-			}
-		}
-
-		maxNum := 0
-		for _, e := range tmp {
-			base, seq, _, err := stripLeaf(e)
-			if err != nil {
-				log.Printf("unable to strip sequence number: %s", err)
-			}
-			num, err := strconv.Atoi(id)
-			if err != nil {
-				log.Printf("unable to parse number: %s", err)
-			}
-			if num > maxNum {
-				maxNum = num
-			}
-		}
-
-		log.Fatalf("File doesn't exist: %q", filePath)
+	if fileExists(filePath) {
+		openInEditor(filePath)
 	}
-	openInEditor(filePath)
+
+	// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and
+	// the prefix given is `1.1`
+	// - also affects opening any letter-only prefix:
+	//
+	// ./zet2 open tmp
+	// Unable to find branch: "tmp"
+
+	// find if the entered id is a prefix of a branch
+
+	// NOTE: attempt to be clever when user tries to open valid prefix
+	allIds := getAllIds()
+	idsMatchingPrefix := []string{}
+	for _, e := range allIds {
+		if strings.HasPrefix(e, id) {
+			idsMatchingPrefix = append(idsMatchingPrefix, e)
+		}
+	}
+	if len(idsMatchingPrefix) == 0 {
+		log.Fatalf("File doesn't exist, and no matching prefixes found.")
+	}
+
+	// NOTE: find the start of the shortest matching id
+	minNum := sequenceUpperLimit
+	var base string
+	for _, e := range idsMatchingPrefix {
+		var seq string
+		var err error
+		base, seq, _, err = stripLeaf(e)
+		if err != nil {
+			log.Printf("Unable to strip sequence number: %s", err)
+		}
+
+		// NOTE: only sequences where the base is a match for the id are
+		// interesting, because otherwise we'll match grandchildren
+		if base != id+"." {
+			continue
+		}
+
+		num, err := strconv.Atoi(seq)
+		if err != nil {
+			log.Printf("Unable to parse number: %s", err)
+		}
+
+		if num == sequenceUpperLimit {
+			panic("unexpected high sequence number encountered. logic should be re-evaluated")
+		}
+
+		if num < minNum {
+			minNum = num
+		}
+		if num == 0 {
+			break
+		}
+	}
+
+	if minNum < sequenceUpperLimit {
+		newFile := fmt.Sprintf("%s%d.md", base, minNum)
+		filePath = path.Join(zetDir, newFile)
+		if fileExists(filePath) {
+			openInEditor(filePath)
+			return
+		}
+	}
+
+	// NOTE: i tried.
+	log.Fatalf("Neither file, nor matching sequence exist: %q", id)
 }
 
 func ResolveCommand() {
@@ -365,7 +407,12 @@ func ResolveCommand() {
 		}
 	}
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
-		id = getFirstSeqInBranch(id)
+		var err error
+		id, err = getFirstSeqInBranch(id)
+		if err != nil {
+			panic(err) // TODO: dunno if this is the correct spot for the bug
+		}
+
 	}
 	filePath := path.Join(zetDir, id+".md")
 	if !fileExists(filePath) {
@@ -554,8 +601,8 @@ func getAllIds() []string {
 	return ret
 }
 
-func getFirstSeqInBranch(id string) string {
-	maxSeqVal := 999999
+func getFirstSeqInBranch(id string) (string, error) {
+	maxSeqVal := sequenceUpperLimit
 	allIds := getAllIds()
 	minSeq := maxSeqVal
 	for _, e := range allIds {
@@ -581,11 +628,10 @@ func getFirstSeqInBranch(id string) string {
 		}
 	}
 	if minSeq == maxSeqVal {
-		// BUG: `zet2 open tmp`
-		log.Fatalf("Unable to find branch: %q", id)
+		return "", fmt.Errorf("Unable to find branch: %q", id)
 	}
 	id = fmt.Sprintf("%s%d", id, minSeq)
-	return id
+	return id, nil
 }
 
 // incrementAlphaBranch takes a zettel ID that ends in an alphabetic character
