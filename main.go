@@ -297,6 +297,7 @@ func OpenCommand() {
 	}
 
 	// NOTE: find the start of the shortest matching id
+	// TODO: the for loop below looks a lot like `getFirstSeqInBranch`, refactoring opportunity
 	minNum := sequenceUpperLimit
 	var base string
 	for _, e := range idsMatchingPrefix {
@@ -610,8 +611,13 @@ func getFirstSeqInBranch(id string) (string, error) {
 			}
 			n, err := strconv.Atoi(seq)
 			if err != nil {
-				panic(err)
+				return "", err
 			}
+
+			if n == maxSeqVal {
+				panic("encountered unexpectedly large sequence, logic should be revisited")
+			}
+
 			if n == 0 {
 				minSeq = n
 				break // cant go lower, stop search
