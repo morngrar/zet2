@@ -271,7 +271,10 @@ func OpenCommand() {
 		var err error
 		id, err = getFirstSeqInBranch(id)
 		if err != nil {
-			panic(err) // TODO: dunno if this is the correct spot for the bug
+			// BUG: zet2 open tmp breaks here. Probably extract stuff below for
+			// j1.1.x into function to also work with tmp.x and asdf.x
+			//	- will probably also need some logic to confirm it is in fact top level
+			panic(err)
 		}
 	}
 
@@ -280,15 +283,6 @@ func OpenCommand() {
 	if fileExists(filePath) {
 		openInEditor(filePath)
 	}
-
-	// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and
-	// the prefix given is `1.1`
-	// - also affects opening any letter-only prefix:
-	//
-	// ./zet2 open tmp
-	// Unable to find branch: "tmp"
-
-	// find if the entered id is a prefix of a branch
 
 	// NOTE: attempt to be clever when user tries to open valid prefix
 	allIds := getAllIds()
