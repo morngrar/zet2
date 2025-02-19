@@ -404,7 +404,7 @@ func ResolveCommand() {
 		var err error
 		id, err = getFirstSeqInBranch(id)
 		if err != nil {
-			panic(err) // TODO: dunno if this is the correct spot for the bug
+			panic(err) // TODO: there is probably a better thing to do here
 		}
 
 	}
