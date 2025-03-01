@@ -774,7 +774,7 @@ func timestamp() string {
 // 0.2.2 here
 
 // TODO: link command
-//	- xclip on linux, pbcopy on darwin, ??? on windows
+//	- xclip on linux, pbcopy on darwin
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
 //	- `zet link path PATH` -> [[ID]]
 //	- `zet link srcId destId` -> append dst with link to src on new line
@@ -785,19 +785,19 @@ func timestamp() string {
 
 // 0.3 here
 
-// TODO: code cleanup/refactoring
-// TODO: help/usage output
-// TODO: tab completion
-// TODO: automatic embed of latest git tag as version
-// TODO: goreleaser
-
-// 1.0 here
-
 // TODO: rename command
 // TODO: extract command
 //	- must update subtree IDs == rename command is needed
 
-// 1.1 here
+// TODO: add persistent configuration of default prefix
+// TODO: code cleanup/refactoring
+// TODO: help/usage output
+// TODO: tab completion
+//	- explore command tree structure
+// TODO: automatic embed of latest git tag as version
+// TODO: goreleaser
+
+// 1.0 here
 
 // further features past 1.0
 // TODO: graft command
@@ -806,3 +806,5 @@ func timestamp() string {
 //	- look at gh for rendering markdown
 //	- look at logbrowser for the tui stuff, dont overcomplicate
 // TODO: more sophisticated search
+// TODO: wayland support for link command
+// TODO: windows support for link command
