@@ -776,8 +776,6 @@ func timestamp() string {
 	return ts
 }
 
-// 0.2.2 here
-
 // TODO: link command
 //	- xclip on linux, pbcopy on darwin
 //	- w/ support for xxx.1a2b -> xxx.1a2b1.md
@@ -785,26 +783,41 @@ func timestamp() string {
 //	- `zet link srcId destId` -> append dst with link to src on new line
 // TODO: branch subcommand that appends link to new branch in the parent, to be
 // used from cli rather than in-editor
-// TODO: resolve branch subcommand that returns branch prefix of given id or
-// path: tmp.1asdf32 -> tmp.1asdf || .../tmp.1asdf32.md -> tmp.1asdf
 
 // 0.3 here
 
 // TODO: rename command
+// NOTE: do this if you feel the energy for it
+
+// 0.4 here
+
 // TODO: extract command
 //	- must update subtree IDs == rename command is needed
 
+// 0.5 here
+
 // TODO: add persistent configuration of default prefix
+
+// 0.6 here
+
 // TODO: code cleanup/refactoring
 // TODO: help/usage output
+
+// 0.7 here
+
 // TODO: tab completion
 //	- explore command tree structure
+
+// 0.8 here
+
 // TODO: automatic embed of latest git tag as version
 // TODO: goreleaser
 
 // 1.0 here
 
 // further features past 1.0
+// TODO: resolve branch subcommand that returns branch prefix of given id or
+// path: tmp.1asdf32 -> tmp.1asdf || .../tmp.1asdf32.md -> tmp.1asdf
 // TODO: graft command
 // TODO: prune command
 // TODO: browse command - TUI
