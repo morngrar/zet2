@@ -218,7 +218,7 @@ func CreateCommand(prefix string) {
 		zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
 	}
 	filePath := createZettelFile(zettelId)
-	openInEditor(filePath)
+	openInEditor(filePath, true)
 }
 
 func GrepCommand() {
@@ -281,7 +281,7 @@ func OpenCommand() {
 	// NOTE: happy path, just open the file
 	filePath := path.Join(zetDir, id+".md")
 	if fileExists(filePath) {
-		openInEditor(filePath)
+		openInEditor(filePath, false)
 	}
 
 	// NOTE: attempt to be clever when user tries to open valid prefix
@@ -335,7 +335,7 @@ func OpenCommand() {
 		newFile := fmt.Sprintf("%s%d.md", base, minNum)
 		filePath = path.Join(zetDir, newFile)
 		if fileExists(filePath) {
-			openInEditor(filePath)
+			openInEditor(filePath, false)
 			return
 		}
 	}
@@ -695,9 +695,9 @@ func nextBranch(branches []string) (string, error) {
 	return nextAlphaBranch, nil
 }
 
-func openInEditor(path string) {
+func openInEditor(path string, insertMode bool) {
 	var cmd *exec.Cmd
-	if editor == "vim" || editor == "nvim" {
+	if (editor == "vim" || editor == "nvim") && insertMode {
 		cmd = exec.Command(editor, "+6", "-c", "startinsert", path)
 	} else {
 		cmd = exec.Command(editor, "+6", path)
