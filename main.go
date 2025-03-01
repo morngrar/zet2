@@ -270,6 +270,38 @@ func OpenCommand() {
 	}
 	filePath := path.Join(zetDir, id+".md")
 	if !fileExists(filePath) {
+
+		// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and
+		// the prefix given is `1.1`
+		// - also affects opening any letter-only prefix:
+		//
+		// ./zet2 open tmp
+		// Unable to find branch: "tmp"
+
+		// find if the entered id is a prefix of a branch
+		allIds := getAllIds()
+		tmp := []string{}
+		for _, e := range allIds {
+			if strings.HasPrefix(e, id) {
+				tmp = append(tmp, e)
+			}
+		}
+
+		maxNum := 0
+		for _, e := range tmp {
+			base, seq, _, err := stripLeaf(e)
+			if err != nil {
+				log.Printf("unable to strip sequence number: %s", err)
+			}
+			num, err := strconv.Atoi(id)
+			if err != nil {
+				log.Printf("unable to parse number: %s", err)
+			}
+			if num > maxNum {
+				maxNum = num
+			}
+		}
+
 		log.Fatalf("File doesn't exist: %q", filePath)
 	}
 	openInEditor(filePath)
@@ -549,6 +581,7 @@ func getFirstSeqInBranch(id string) string {
 		}
 	}
 	if minSeq == maxSeqVal {
+		// BUG: `zet2 open tmp`
 		log.Fatalf("Unable to find branch: %q", id)
 	}
 	id = fmt.Sprintf("%s%d", id, minSeq)
@@ -691,12 +724,6 @@ func timestamp() string {
 	ts := now.Format(format)
 	return ts
 }
-
-// BUG: zet2 open PREFIX doesn't work if the branch in question is 1.1.x and
-// the prefix given is `1.1`
-//	- it may be easy to fix this and introduce more shenanigans...
-//	- perhaps a useful compromise is to allow opening of `1.1.` which then will
-//	  open the first seq in that branch by detecting the trailing period
 
 // 0.2.2 here
 
