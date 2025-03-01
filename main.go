@@ -264,27 +264,7 @@ func GrepCommand() {
 	}
 }
 
-func OpenCommand() {
-	id := shift(&os.Args)
-	if !unicode.IsDigit(rune(id[len(id)-1])) {
-		// not a sequence no. so must be branch
-		var err error
-		id, err = getFirstSeqInBranch(id)
-		if err != nil {
-			// BUG: zet2 open tmp breaks here. Probably extract stuff below for
-			// j1.1.x into function to also work with tmp.x and asdf.x
-			//	- will probably also need some logic to confirm it is in fact top level
-			panic(err)
-		}
-	}
-
-	// NOTE: happy path, just open the file
-	filePath := path.Join(zetDir, id+".md")
-	if fileExists(filePath) {
-		openInEditor(filePath, false)
-	}
-
-	// NOTE: attempt to be clever when user tries to open valid prefix
+func retryOpenPrefix(id string) {
 	allIds := getAllIds()
 	idsMatchingPrefix := []string{}
 	for _, e := range allIds {
@@ -333,7 +313,7 @@ func OpenCommand() {
 
 	if minNum < sequenceUpperLimit {
 		newFile := fmt.Sprintf("%s%d.md", base, minNum)
-		filePath = path.Join(zetDir, newFile)
+		filePath := path.Join(zetDir, newFile)
 		if fileExists(filePath) {
 			openInEditor(filePath, false)
 			return
@@ -342,6 +322,31 @@ func OpenCommand() {
 
 	// NOTE: i tried.
 	log.Fatalf("Neither file, nor matching sequence exist: %q", id)
+}
+
+func OpenCommand() {
+	id := shift(&os.Args)
+	if !unicode.IsDigit(rune(id[len(id)-1])) {
+		// not a sequence no. so must be branch
+		var err error
+		tmpId, err := getFirstSeqInBranch(id)
+		if err != nil {
+			// NOTE: may be an all-letter prefix
+			// TODO: this procedure, where failure is a crash, and a success must return, should be refactored later
+			retryOpenPrefix(id)
+			return // NOTE: failure results in crash
+		}
+		id = tmpId // NOTE: success should preserve new id
+	}
+
+	// NOTE: happy path, just open the file
+	filePath := path.Join(zetDir, id+".md")
+	if fileExists(filePath) {
+		openInEditor(filePath, false)
+	}
+
+	// NOTE: attempt to be clever when user tries to open valid prefix
+	retryOpenPrefix(id)
 }
 
 func ResolveCommand() {
