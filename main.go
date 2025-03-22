@@ -465,6 +465,44 @@ func getIdsMatchingPrefix(prefix string) []string {
 	return idsMatchingPrefix
 }
 
+func skipResolve(base string, seqNum int, reverse bool) (nextId, nextPath string, err error) {
+	allMatchingIds := getIdsMatchingPrefix(base)
+	reverseMaxMatch := -1
+	for _, id := range allMatchingIds {
+		subBase, subSeq, _, err := stripLeaf(id)
+		if err != nil {
+			panic(err) // TODO: figure out what to do here
+		}
+		if subBase == base {
+			subSeqNum, err := strconv.Atoi(subSeq)
+			if err != nil {
+				return nextId, nextPath, err
+			}
+			if !reverse {
+				if subSeqNum > seqNum {
+					nextId = fmt.Sprintf("%s%d", base, subSeqNum)
+					nextPath = path.Join(zetDir, nextId+".md")
+					return nextId, nextPath, err
+				}
+			} else {
+				if (subSeqNum < seqNum) && (reverseMaxMatch < subSeqNum) {
+					reverseMaxMatch = subSeqNum
+				}
+			}
+		}
+
+	}
+	if reverse {
+		if reverseMaxMatch != -1 {
+			nextId = fmt.Sprintf("%s%d", base, reverseMaxMatch)
+			nextPath = path.Join(zetDir, nextId+".md")
+			return nextId, nextPath, err
+		}
+	}
+
+	return nextId, nextPath, fmt.Errorf("no available zettel to skip to")
+}
+
 func determineNextZet(id string) (nextId string, nextPath string, err error) {
 	base, seq, _, err := stripLeaf(id)
 	if err != nil {
@@ -480,12 +518,15 @@ func determineNextZet(id string) (nextId string, nextPath string, err error) {
 	nextPath = path.Join(zetDir, nextId+".md")
 
 	if !fileExists(nextPath) {
-		if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
-			err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
-		} else {
-			err = fmt.Errorf("next file %q doesn't exist", nextPath)
+		nextId, nextPath, err = skipResolve(base, seqNum, false)
+		if err != nil {
+			if strings.Contains(nextPath, "/") || strings.Contains(nextPath, "\\") {
+				err = fmt.Errorf("next file %q doesn't exist. Did you mean to call the 'next path' subcommand?", nextPath)
+			} else {
+				err = fmt.Errorf("next file %q doesn't exist", nextPath)
+			}
+			return nextId, nextPath, err
 		}
-		return nextId, nextPath, err
 	}
 	return nextId, nextPath, nil
 }
@@ -506,6 +547,7 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 		prevId = fmt.Sprintf("%s%d", base, prevNum)
 		prevPath = path.Join(zetDir, prevId+".md")
 		if !fileExists(prevPath) {
+
 			prevId = fmt.Sprintf("%s%d", base, 0)
 			base, _, isDigit, err := stripLeaf(prevId)
 			if err != nil {
@@ -534,13 +576,16 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 	prevId = fmt.Sprintf("%s%d", base, prevNum)
 	prevPath = path.Join(zetDir, prevId+".md")
 	if !fileExists(prevPath) {
-		//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
-		if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
-			err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
-		} else {
-			err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+		prevId, prevPath, err = skipResolve(base, seqNum, true)
+		if err != nil {
+			//TODO: move this path-check earlier in tree to give helpful error messages in this case no matter the input id
+			if strings.Contains(prevPath, "/") || strings.Contains(prevPath, "\\") {
+				err = fmt.Errorf("previous file %q doesn't exist. Did you mean to call the 'previous path' subcommand?", prevPath)
+			} else {
+				err = fmt.Errorf("previous file %q doesn't exist", prevPath)
+			}
+			return prevId, prevPath, err
 		}
-		return prevId, prevPath, err
 	}
 
 	return prevId, prevPath, nil
