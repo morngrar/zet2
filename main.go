@@ -29,6 +29,7 @@ var sequenceUpperLimit = 999999
 // subcommands
 var reservedPrefixes = []string{
 	"branch",
+	"link",
 	"grep",
 	"next",
 	"previous",
@@ -119,6 +120,11 @@ func main() {
 			panic("TODO: implement usage: need to pass parent id")
 		}
 		BranchCommand()
+	case "link":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass parent id")
+		}
+		LinkCommand()
 	case "resolve":
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass id to resolve")
@@ -319,6 +325,35 @@ func retryOpenPrefix(id string) {
 	log.Fatalf("Neither file, nor matching sequence exist: %q", id)
 }
 
+func LinkCommand() {
+	// TODO: link command
+	//	- xclip on linux, pbcopy on darwin
+	//	- w/ support for xxx.1a2b -> xxx.1a2b1.md
+	//	- `zet link path PATH` -> [[ID]]
+	//	- `zet link srcId destId` -> append dst with link to src on new line
+
+	arg1 := shift(&os.Args)
+	if arg1 == "path" {
+		if len(os.Args) != 1 {
+			log.Fatalf(
+				"Unsupported number of trailing arguments to link path command: '%v'",
+				os.Args,
+			)
+		}
+		id := getIdFromPathOnArgs()
+		fmt.Printf("[[%s]]\n", id)
+		return
+	}
+
+	if len(os.Args) == 1 {
+		panic("unimplemented")
+	} else if len(os.Args) > 1 {
+		log.Fatalf("Unsupported number of trailing arguments to link command: '%v'", os.Args)
+	}
+
+	panic("unimplemented")
+}
+
 func OpenCommand() {
 	id := shift(&os.Args)
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
@@ -378,12 +413,7 @@ func ResolveCommand() {
 	if id == "previous" {
 		pathOrId := shift(&os.Args)
 		if pathOrId == "path" {
-			zetPath := shift(&os.Args)
-			base := path.Base(zetPath)
-			id, extFound := strings.CutSuffix(base, ".md")
-			if !extFound {
-				log.Fatalf("given file did not have expected extension: %q", base)
-			}
+			id = getIdFromPathOnArgs()
 			_, prevPath, err := determinePrevZet(id)
 			if err != nil {
 				log.Fatalf("Error determining next id: %s", err)
@@ -415,6 +445,18 @@ func ResolveCommand() {
 		log.Fatalf("file does not exist: %q", filePath)
 	}
 	fmt.Println(filePath)
+}
+
+// getIdFromPathOnArgs shifts os.Args and returns the zettel id of the file
+// path that is assumed to be the first argument
+func getIdFromPathOnArgs() string {
+	zetPath := shift(&os.Args)
+	base := path.Base(zetPath)
+	id, extFound := strings.CutSuffix(base, ".md")
+	if !extFound {
+		log.Fatalf("given file did not have expected extension: %q", base)
+	}
+	return id
 }
 
 // alphaMax takes two alphabetic strings and returns the one with the highest
@@ -828,11 +870,6 @@ func timestamp() string {
 	return ts
 }
 
-// TODO: link command
-//	- xclip on linux, pbcopy on darwin
-//	- w/ support for xxx.1a2b -> xxx.1a2b1.md
-//	- `zet link path PATH` -> [[ID]]
-//	- `zet link srcId destId` -> append dst with link to src on new line
 // TODO: branch subcommand that appends link to new branch in the parent, to be
 // used from cli rather than in-editor
 
