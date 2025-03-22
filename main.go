@@ -21,7 +21,7 @@ import (
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.2.3"
+var version = "v0.2.5"
 
 var sequenceUpperLimit = 999999
 
