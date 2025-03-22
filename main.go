@@ -48,14 +48,14 @@ func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 	var err error
 
-	// if os.Args[0] != "./zet2" { // if not running the command from same dir
-	// 	homeDir, err := os.UserHomeDir()
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// 	zetDir = path.Join(homeDir, "zettel2") // NOTE: temporary prod-dir until 1.0, then the trailing 2 will be dropped in command and dir
-	// 	// TODO: make this configurable
-	// }
+	if os.Args[0] != "./zet2" { // if not running the command from same dir
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			panic(err)
+		}
+		zetDir = path.Join(homeDir, "zettel2") // NOTE: temporary prod-dir until 1.0, then the trailing 2 will be dropped in command and dir
+		// TODO: make this configurable
+	}
 
 	err = os.MkdirAll(zetDir, os.ModePerm) // ensures existence of zettel dir
 	if err != nil {
