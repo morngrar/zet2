@@ -30,6 +30,9 @@ autocmd FileType markdown nnoremap gl /[[<cr>w:noh<cr>
 " branch off current zettel and enter edit mode
 autocmd FileType markdown nnoremap <leader>zb !!zet2 branch %<cr>:w<cr>k/[[<cr>w:noh<cr>:e `zet2 resolve <cfile>`<cr>5jA
 
+" add wiki-link to current zettel to system clipboard for pasting into another zettel
+autocmd FileType markdown nnoremap <silent><leader>zl !!zet2 link path %<cr><cr>
+
 " navigate up in current branch (goes into parent if on first)
 autocmd FileType markdown nnoremap <leader>k :w<cr>:noh<cr>:e `zet2 resolve previous path %`<cr>5j
 
