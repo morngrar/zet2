@@ -353,22 +353,7 @@ func LinkCommand() {
 
 		srcId := arg1
 		dstId := shift(&os.Args)
-		srcPath := path.Join(zetDir, srcId+".md")
-		if !fileExists(srcPath) {
-			log.Fatalf("Source zet does not exist: %q", srcPath)
-		}
-
-		dstPath := path.Join(zetDir, dstId+".md")
-		if !fileExists(dstPath) {
-			log.Fatalf("Destination zet does not exist: %q", dstPath)
-		}
-
-		// NOTE: all good, now append link to src
-		link := fmt.Sprintf("\n[[%s]]\n", dstId)
-		err := appendToFile(link, srcPath)
-		if err != nil {
-			log.Fatalf("Unable to append link: %s", err)
-		}
+		linkAndAppend(srcId, dstId)
 		return
 
 	} else if len(os.Args) > 1 {
@@ -376,6 +361,25 @@ func LinkCommand() {
 	}
 
 	panic("unimplemented")
+}
+
+func linkAndAppend(srcId, dstId string) {
+	srcPath := path.Join(zetDir, srcId+".md")
+	if !fileExists(srcPath) {
+		log.Fatalf("Source zet does not exist: %q", srcPath)
+	}
+
+	dstPath := path.Join(zetDir, dstId+".md")
+	if !fileExists(dstPath) {
+		log.Fatalf("Destination zet does not exist: %q", dstPath)
+	}
+
+	// NOTE: all good, now append link to src
+	link := fmt.Sprintf("\n[[%s]]\n", dstId)
+	err := appendToFile(link, srcPath)
+	if err != nil {
+		log.Fatalf("Unable to append link: %s", err)
+	}
 }
 
 func appendToFile(s string, path string) error {
