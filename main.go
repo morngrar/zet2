@@ -265,13 +265,7 @@ func GrepCommand() {
 }
 
 func retryOpenPrefix(id string) {
-	allIds := getAllIds()
-	idsMatchingPrefix := []string{}
-	for _, e := range allIds {
-		if strings.HasPrefix(e, id) {
-			idsMatchingPrefix = append(idsMatchingPrefix, e)
-		}
-	}
+	idsMatchingPrefix := getIdsMatchingPrefix(id)
 	if len(idsMatchingPrefix) == 0 {
 		log.Fatalf("File doesn't exist, and no matching prefixes found.")
 	}
@@ -458,6 +452,17 @@ func createZettelFile(zettelId string) string {
 	f.Write([]byte(content))
 	f.Close()
 	return filePath
+}
+
+func getIdsMatchingPrefix(prefix string) []string {
+	allIds := getAllIds()
+	idsMatchingPrefix := []string{}
+	for _, e := range allIds {
+		if strings.HasPrefix(e, prefix) {
+			idsMatchingPrefix = append(idsMatchingPrefix, e)
+		}
+	}
+	return idsMatchingPrefix
 }
 
 func determineNextZet(id string) (nextId string, nextPath string, err error) {
