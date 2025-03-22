@@ -36,3 +36,17 @@ autocmd FileType markdown nnoremap <leader>k :w<cr>:noh<cr>:e `zet2 resolve prev
 " navigate down in current branch
 autocmd FileType markdown nnoremap <leader>j :w<cr>:noh<cr>:e `zet2 resolve next path %`<cr>5j
 ```
+
+## Development
+
+When developing the application, it is useful to export the debug environment
+variable, to have the application refer to a `zettel/` in the working directory
+rather than the user's home directory. Using this also carries over to the
+DAP-integration of delve when using neovim or similar.
+
+```bash
+export ZET2_DEBUG=1
+```
+
+Also do this in the terminal session where you want to test commands manually
+outside the debugger environment.

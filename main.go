@@ -18,6 +18,10 @@ import (
 	"golang.org/x/term"
 )
 
+// NOTE: do `export ZET2_DEBUG=1` or `export ZET2_DEBUG=true` before running
+// nvim to use local zettel folder instead of the system one
+var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
+
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
@@ -48,7 +52,7 @@ func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 	var err error
 
-	if os.Args[0] != "./zet2" { // if not running the command from same dir
+	if !DEBUG {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
 			panic(err)
