@@ -25,7 +25,7 @@ var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.2.5"
+var version = "v0.3.0"
 
 var sequenceUpperLimit = 999999
 
@@ -933,8 +933,6 @@ func timestamp() string {
 	ts := now.Format(format)
 	return ts
 }
-
-// 0.3 here
 
 // TODO: rename command
 // NOTE: do this if you feel the energy for it
