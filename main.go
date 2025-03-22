@@ -204,7 +204,7 @@ func CreateCommand(prefix string) {
 		id, _ := strings.CutSuffix(suffix, ".md")
 		num, err := strconv.Atoi(id)
 		if err != nil {
-			log.Printf("unable to parse number: %s", err)
+			continue
 		}
 		if num > maxNum {
 			maxNum = num
@@ -296,7 +296,7 @@ func retryOpenPrefix(id string) {
 
 		num, err := strconv.Atoi(seq)
 		if err != nil {
-			log.Printf("Unable to parse number: %s", err)
+			continue
 		}
 
 		if num == sequenceUpperLimit {
@@ -343,6 +343,7 @@ func OpenCommand() {
 	filePath := path.Join(zetDir, id+".md")
 	if fileExists(filePath) {
 		openInEditor(filePath, false)
+		return
 	}
 
 	// NOTE: attempt to be clever when user tries to open valid prefix
