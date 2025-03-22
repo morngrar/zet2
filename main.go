@@ -328,8 +328,6 @@ func retryOpenPrefix(id string) {
 func LinkCommand() {
 	// TODO: link command
 	//	- xclip on linux, pbcopy on darwin
-	//	- w/ support for xxx.1a2b -> xxx.1a2b1.md
-	//	- `zet link path PATH` -> [[ID]]
 	//	- `zet link srcId destId` -> append dst with link to src on new line
 
 	arg1 := shift(&os.Args)
@@ -341,7 +339,11 @@ func LinkCommand() {
 			)
 		}
 		id := getIdFromPathOnArgs()
-		fmt.Printf("[[%s]]\n", id)
+		s := fmt.Sprintf("[[%s]]\n", id)
+		err := putOnClipboard(s)
+		if err != nil {
+			log.Fatalf("Unable to add link to clipboard: %s", err)
+		}
 		return
 	}
 
