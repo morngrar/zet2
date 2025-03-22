@@ -159,7 +159,17 @@ func BranchCommand() {
 	//	responsibilities aren't clear
 	//	- therefore the zettel should be master
 
-	parentId := os.Args[0]
+	var parentId string
+	shouldLink := false
+	// TODO: error checking length of args
+	arg1 := shift(&os.Args)
+	if arg1 == "link" {
+		parentId = shift(&os.Args)
+		shouldLink = true
+	} else {
+		parentId = arg1
+	}
+
 	if strings.HasSuffix(parentId, ".md") {
 		base := path.Base(parentId)
 		parentId, _ = strings.CutSuffix(base, ".md")
@@ -183,7 +193,18 @@ func BranchCommand() {
 	createZettelFile(branchId + "1") // start branches on sequence no. 1
 
 	// output branch link
-	fmt.Printf("[[%s]]\n", branchId)
+	if shouldLink {
+		linkAndAppend(parentId, branchId)
+		beginning, err := getFirstSeqInBranch(branchId)
+		if err != nil {
+			panic(err) // should NEVER happen
+		}
+		newFile := fmt.Sprintf("%s.md", beginning)
+		filePath := path.Join(zetDir, newFile)
+		fmt.Printf("%s\n", filePath)
+	} else {
+		fmt.Printf("[[%s]]\n", branchId)
+	}
 }
 
 func CreateCommand(prefix string) {
@@ -371,7 +392,10 @@ func linkAndAppend(srcId, dstId string) {
 
 	dstPath := path.Join(zetDir, dstId+".md")
 	if !fileExists(dstPath) {
-		log.Fatalf("Destination zet does not exist: %q", dstPath)
+		_, err := getFirstSeqInBranch(dstId)
+		if err != nil {
+			log.Fatalf("Destination zet or branch does not exist: %q", dstId)
+		}
 	}
 
 	// NOTE: all good, now append link to src
@@ -909,9 +933,6 @@ func timestamp() string {
 	ts := now.Format(format)
 	return ts
 }
-
-// TODO: branch subcommand that appends link to new branch in the parent, to be
-// used from cli rather than in-editor
 
 // 0.3 here
 
