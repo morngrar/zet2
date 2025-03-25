@@ -337,6 +337,10 @@ func retryOpenPrefix(id string) {
 		}
 	}
 
+	if base != id && base != id+"." {
+		base = id + "."
+	}
+
 	if minNum < sequenceUpperLimit {
 		newFile := fmt.Sprintf("%s%d.md", base, minNum)
 		filePath := path.Join(zetDir, newFile)
