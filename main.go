@@ -25,7 +25,7 @@ var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.3.0"
+var version = "v0.3.1"
 
 var sequenceUpperLimit = 999999
 
