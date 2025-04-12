@@ -468,6 +468,17 @@ func RenameCommand() {
 	panic("rename is unimplemented")
 }
 
+// The OS function for renaming files will silently overwrite the destination
+// file, if it exists. This is not acceptable in the present case, so we wrap
+// it and check for existence first. Returning an error in case of an existing
+// file or directory in the destination path.
+func performRename(src, dst string) error {
+	if fileExists(dst) {
+		return fmt.Errorf("destination file %q exists", dst)
+	}
+	return os.Rename(src, dst)
+}
+
 func ResolveCommand() {
 	id := shift(&os.Args)
 	if id == "next" {
