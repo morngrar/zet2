@@ -465,6 +465,13 @@ func RenameCommand() {
 	//		- If this problem never manifests, it is kind of wasted effort,
 	//		  implement only when such a recovery has been needed at least once
 
+	// for flat rename
+	// TODO: link updater
+	// TODO: recursive renamer based on prefix
+
+	// for branch isolation
+	// TODO: link remover
+
 	panic("rename is unimplemented")
 }
 
