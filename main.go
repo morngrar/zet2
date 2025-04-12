@@ -37,6 +37,7 @@ var reservedPrefixes = []string{
 	"grep",
 	"next",
 	"previous",
+	"rename",
 	"version",
 	"--version",
 	"-v",
@@ -134,6 +135,11 @@ func main() {
 			panic("TODO: implement usage: need to pass id to resolve")
 		}
 		ResolveCommand()
+	case "rename":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass id to resolve")
+		}
+		RenameCommand()
 	case "open":
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass id to open")
@@ -446,6 +452,20 @@ func OpenCommand() {
 
 	// NOTE: attempt to be clever when user tries to open valid prefix
 	retryOpenPrefix(id)
+}
+
+func RenameCommand() {
+	// NOTE: rename command
+	//	- has two stages which both have to happen as one transaction (atomically, or roll-backable):
+	//		a) atomically rename file and update all links to it in the collection
+	//		b) recursively rename all children
+	//	- MVP is to journal the rename, so that manual recovery is possible
+	//	- Automatic - or semi-automatic, like merge conflicts - recovery in the
+	//	  presence of journal file can be later feature
+	//		- If this problem never manifests, it is kind of wasted effort,
+	//		  implement only when such a recovery has been needed at least once
+
+	panic("rename is unimplemented")
 }
 
 func ResolveCommand() {
@@ -937,17 +957,6 @@ func timestamp() string {
 	ts := now.Format(format)
 	return ts
 }
-
-// TODO: rename command
-//	- has two stages which both have to happen as one transaction (atomically, or roll-backable):
-//		a) atomically rename file and update all links to it in the collection
-//		b) recursively rename all children
-//	- MVP is to journal the rename, so that manual recovery is possible
-//	- Automatic - or semi-automatic, like merge conflicts - recovery in the
-//	  presence of journal file can be later feature
-//		- If this problem never manifests, it is kind of wasted effort,
-//		  implement only when such a recovery has been needed at least once
-// NOTE: do this if you feel the energy for it
 
 // 0.4 here
 
