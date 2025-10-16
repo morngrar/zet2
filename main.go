@@ -49,6 +49,19 @@ var reservedPrefixes = []string{
 	"-h",
 }
 
+// NOTE: for better compline handling
+func SpaceSplitAndClean(s string) []string {
+	a := strings.SplitSeq(s, " ")
+	final := []string{}
+	for p := range a {
+		if p == "" {
+			continue
+		}
+		final = append(final, p)
+	}
+	return final
+}
+
 func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 	var err error
@@ -465,9 +478,24 @@ func RenameCommand() {
 	//		- If this problem never manifests, it is kind of wasted effort,
 	//		  implement only when such a recovery has been needed at least once
 
+	// NOTE: flat rename from excalidraw:
+	// 1. Rename file
+	// 2. Update all links to file (not branxh)
+	// 3. Rename all zets whose ID has current ID as prefix
+	// 4. Update all old branch links in current zet to new prefix
+
+	// NOTE: branch isolation from excalidraw:
+	// 1. Determine parent ID
+	// 2. Remove link(s) in parent
+	// 3. Get all zets prefixed with branch ID
+	// 4. Rename all those according to [Renaming a Zettel] with new prefix,
+	//    preserving sequence number
+
 	// for flat rename
 	// TODO: link updater
 	// TODO: recursive renamer based on prefix
+	// TODO: journaler
+	// TODO: journal remover
 
 	// for branch isolation
 	// TODO: link remover
