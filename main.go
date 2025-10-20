@@ -477,10 +477,14 @@ func RenameCommand() {
 	//	  presence of journal file can be later feature
 	//		- If this problem never manifests, it is kind of wasted effort,
 	//		  implement only when such a recovery has been needed at least once
+	//	- BUG: don't mind this first paragraph too much, focus on implementing
+	//	the flat rename below, and follow up with the branch isolation, the
+	//	fancy stuff can come in 20yrs if ever. Once rename is done, we're ALMOST
+	//	at grafting
 
 	// NOTE: flat rename from excalidraw:
-	// 1. Rename file
-	// 2. Update all links to file (not branxh)
+	// 1. Rename file - updating or inserting yaml front matter as part of this NEXT
+	// 2. Update all links to file (not branch)
 	// 3. Rename all zets whose ID has current ID as prefix
 	// 4. Update all old branch links in current zet to new prefix
 
@@ -494,11 +498,13 @@ func RenameCommand() {
 	// for flat rename
 	// TODO: link updater
 	// TODO: recursive renamer based on prefix
-	// TODO: journaler
-	// TODO: journal remover
 
 	// for branch isolation
 	// TODO: link remover
+
+	// for later
+	// TODO: journaler
+	// TODO: journal remover
 
 	panic("rename is unimplemented")
 }
