@@ -38,6 +38,7 @@ var reservedPrefixes = []string{
 	"next",
 	"previous",
 	"rename",
+	"replant",
 	"version",
 	"--version",
 	"-v",
@@ -153,6 +154,11 @@ func main() {
 			panic("TODO: implement usage: need to pass id to resolve")
 		}
 		RenameCommand()
+	case "replant":
+		if len(os.Args) == 0 {
+			panic("TODO: implement usage: need to pass id to resolve")
+		}
+		ReplantCommand()
 	case "open":
 		if len(os.Args) == 0 {
 			panic("TODO: implement usage: need to pass id to open")
@@ -468,45 +474,33 @@ func OpenCommand() {
 }
 
 func RenameCommand() {
-	// NOTE: rename command
-	//	- has two stages which both have to happen as one transaction (atomically, or roll-backable):
-	//		a) atomically rename file and update all links to it in the collection
-	//		b) recursively rename all children
-	//	- MVP is to journal the rename, so that manual recovery is possible
-	//	- Automatic - or semi-automatic, like merge conflicts - recovery in the
-	//	  presence of journal file can be later feature
-	//		- If this problem never manifests, it is kind of wasted effort,
-	//		  implement only when such a recovery has been needed at least once
-	//	- BUG: don't mind this first paragraph too much, focus on implementing
-	//	the flat rename below, and follow up with the branch isolation, the
-	//	fancy stuff can come in 20yrs if ever. Once rename is done, we're ALMOST
-	//	at grafting
 
-	// NOTE: flat rename from excalidraw:
-	// 1. Rename file - updating or inserting yaml front matter as part of this NEXT
-	// 2. Update all links to file (not branch)
-	// 3. Rename all zets whose ID has current ID as prefix
-	// 4. Update all old branch links in current zet to new prefix
-
-	// NOTE: branch isolation from excalidraw:
-	// 1. Determine parent ID
-	// 2. Remove link(s) in parent
-	// 3. Get all zets prefixed with branch ID
-	// 4. Rename all those according to [Renaming a Zettel] with new prefix,
-	//    preserving sequence number
-
-	// for flat rename
-	// TODO: link updater
-	// TODO: recursive renamer based on prefix
-
-	// for branch isolation
-	// TODO: link remover
+	from := shift(&os.Args)
+	to := shift(&os.Args)
+	err := renameZettel(zetDir, from, to)
+	if err != nil {
+		log.Fatalf("failed to perform recursive rename: %s", err)
+	}
 
 	// for later
 	// TODO: journaler
 	// TODO: journal remover
 
-	panic("rename is unimplemented")
+}
+
+func ReplantCommand() {
+	// NOTE: for renaming a branch into a new series, replacing branch link
+
+	// NOTE: branch isolation from excalidraw:
+	// 1. Determine parent ID
+	// 2. Remove link(s) in parent (should replace with a jumpable prefix link instead)
+	// 3. Get all zets prefixed with branch ID
+	// 4. Rename all those according to [Renaming a Zettel] with new prefix,
+	//    preserving sequence number
+
+	// for branch isolation
+	// TODO: link replacer
+	panic("replanting not implemented")
 }
 
 // The OS function for renaming files will silently overwrite the destination
@@ -616,7 +610,7 @@ func alphaMax(a, b string) (string, error) {
 			return b, nil
 		}
 	}
-	return "", errors.New(fmt.Sprintf("%q and %q seem to be equal", a, b))
+	return "", fmt.Errorf("%q and %q seem to be equal", a, b)
 }
 
 func createZettelFile(zettelId string) string {
@@ -958,6 +952,7 @@ func putOnClipboard(text string) error {
 
 	case "linux":
 		cmd = exec.Command("xclip", "-selection", "clipboard")
+		// TODO: wayland support
 	case "darwin":
 		cmd = exec.Command("pbcopy")
 	default:
@@ -1010,26 +1005,214 @@ func timestamp() string {
 	return ts
 }
 
+func renameZettel(zettelDir, fromId, toId string) error {
+
+	// TODO: candidate for optimization later
+
+	var err error
+
+	_, _, numeric, err := stripLeaf(toId)
+	if err != nil {
+		return fmt.Errorf("unable to strip leaf: %w", err)
+	}
+
+	if !numeric {
+		return fmt.Errorf("toId refers to a branch, not a zettel")
+	}
+
+	// NOTE: validation done, rename file(s)
+	fromPath := path.Join(zettelDir, fromId+".md")
+	toPath := path.Join(zettelDir, toId+".md")
+
+	err = performRename(fromPath, toPath)
+	if err != nil {
+		return fmt.Errorf("failed to rename %q: %w", fromPath, err)
+	}
+
+	buf, err := os.ReadFile(toPath)
+	if err != nil {
+		return fmt.Errorf("failed to read file %q for updating yaml: %w", toPath, err)
+	}
+	updatedContent := updateYamlPreamble(string(buf), toId)
+	err = os.WriteFile(toPath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated yaml: %w", err)
+	}
+
+	allIds := getAllIds()
+	oldLink := fmt.Sprintf("[[%s]]", fromId)
+	newLink := fmt.Sprintf("[[%s]]", toId)
+	for _, id := range allIds {
+		fname := path.Join(zettelDir, id+".md")
+		buf, err := os.ReadFile(fname)
+		if err != nil {
+			return fmt.Errorf("failed to read file %q to update links: %w", fname, err)
+		}
+		newContent := strings.ReplaceAll(string(buf), oldLink, newLink)
+		err = os.WriteFile(fname, []byte(newContent), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write file %q after updating links: %w", fname, err)
+		}
+	}
+
+	prefix := fromId
+	renamedChildren := []string{}
+	// NOTE: refresh to get rid of already renamed id
+	for _, id := range allIds {
+		if tail, ok := strings.CutPrefix(id, prefix); ok {
+			err = renameZettel(zettelDir, id, toId+tail)
+			if err != nil {
+				log.Println("successfully renamed the following before error:")
+				for _, c := range renamedChildren {
+					log.Printf("  %s\n", c)
+				}
+				return fmt.Errorf("failed to rename %q:", err)
+			}
+			renamedChildren = append(renamedChildren, id)
+		}
+	}
+
+	linkedIds := extractLinksFromContent(updatedContent)
+	for _, id := range linkedIds {
+		base, branch, isDigit, err := stripLeaf(id)
+		if err != nil {
+			return fmt.Errorf("unable to strip leaf of %q for link renaming: %w", fromId, err)
+		}
+
+		if isDigit {
+			continue
+		}
+
+		if base == fromId {
+			oldLink := fmt.Sprintf("[[%s]]", id)
+			newLink := fmt.Sprintf("[[%s%s]]", toId, branch)
+			updatedContent = strings.ReplaceAll(updatedContent, oldLink, newLink)
+		}
+	}
+	err = os.WriteFile(toPath, []byte(updatedContent), 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+	}
+
+	allIds = getAllIds() // TODO: more efficient transformation?
+	for _, root := range allIds {
+		thePath := path.Join(zettelDir, root+".md")
+		buf, err := os.ReadFile(thePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %q for updating branch links: %w", toPath, err)
+		}
+		content := string(buf)
+
+		linkedIds := extractLinksFromContent(content)
+		for _, id := range linkedIds {
+			base, branch, isDigit, err := stripLeaf(id)
+			if err != nil {
+				return fmt.Errorf("unable to strip leaf of %q for link renaming: %w", fromId, err)
+			}
+
+			if isDigit {
+				continue
+			}
+
+			if base == fromId {
+				oldLink := fmt.Sprintf("[[%s]]", id)
+				newLink := fmt.Sprintf("[[%s%s]]", toId, branch)
+				content = strings.ReplaceAll(content, oldLink, newLink)
+			}
+		}
+
+		err = os.WriteFile(thePath, []byte(content), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+		}
+	}
+
+	return nil
+}
+
+func updateYamlPreamble(content, newId string) string {
+
+	lines := strings.Split(content, "\n")
+	preableStarted := false
+	preableEnded := false
+	noPreamble := true
+	zettelKeyFound := false
+
+	tmpPreamble := []string{}
+	tmpContent := []string{}
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		if !preableStarted && trimmed != "---" && trimmed != "" {
+			break
+		}
+
+		if preableStarted && trimmed == "---" {
+			preableEnded = true
+			if !zettelKeyFound {
+				tmpPreamble = append(tmpPreamble, fmt.Sprintf("zettel: %s", newId))
+			}
+			continue
+		}
+
+		if !preableStarted && trimmed == "---" {
+			preableStarted = true
+			noPreamble = false
+			continue
+		}
+
+		if preableStarted && !preableEnded {
+			if strings.HasPrefix(trimmed, "zettel:") {
+				newLine := fmt.Sprintf("zettel: %s", newId)
+				tmpPreamble = append(tmpPreamble, newLine)
+				zettelKeyFound = true
+			} else {
+				tmpPreamble = append(tmpPreamble, trimmed)
+			}
+		}
+
+		if preableEnded {
+			tmpContent = append(tmpContent, trimmed)
+		}
+	}
+
+	if noPreamble {
+		newContent := fmt.Sprintf("---\nzettel: %s\n---\n\n%s", newId, content)
+		return newContent
+	}
+
+	newPreamble := strings.Join(tmpPreamble, "\n")
+	newContent := strings.Join(tmpContent, "\n")
+	newContent = fmt.Sprintf("---\n%s\n---\n%s", newPreamble, newContent)
+
+	return newContent
+}
+
 // 0.4 here
 
-// TODO: extract command
-//	- must update subtree IDs == rename command is needed
+// TODO: replant command
 
 // 0.5 here
 
-// TODO: add persistent configuration of default prefix
+// TODO: extract command
+//	- must update subtree IDs == rename command is needed
+//	- furthermore, must effectively graft any child branches in selection onto new note
 
 // 0.6 here
+
+// TODO: add persistent configuration of default prefix
+
+// 0.7 here
 
 // TODO: code cleanup/refactoring
 // TODO: help/usage output
 
-// 0.7 here
+// 0.8 here
 
 // TODO: tab completion
 //	- explore command tree structure
 
-// 0.8 here
+// 0.9 here
 
 // TODO: automatic embed of latest git tag as version
 // TODO: goreleaser
