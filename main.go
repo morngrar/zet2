@@ -544,6 +544,18 @@ func ResolveCommand() {
 		}
 	}
 
+	// TODO: resolve last in a sequence
+	// if id == "latest" {
+	// 	id := shift(&os.Args)
+	// 	last, err := getLastIdInBranch(id)
+	// 	if err != nil {
+	// 		log.Fatalf("Error determining last id: %s", err)
+	// 		//TODO: give usage info instead of just crashing
+	// 	}
+	// 	fmt.Println(last)
+	// 	return
+	// }
+
 	if id == "previous" {
 		pathOrId := shift(&os.Args)
 		if pathOrId == "path" {
