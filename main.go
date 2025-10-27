@@ -1191,7 +1191,7 @@ func updateYamlPreamble(content, newId string) string {
 		}
 
 		if preableEnded {
-			tmpContent = append(tmpContent, trimmed)
+			tmpContent = append(tmpContent, line)
 		}
 	}
 
