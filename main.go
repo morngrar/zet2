@@ -1061,9 +1061,11 @@ func renameZettel(zettelDir, fromId, toId string) error {
 			return fmt.Errorf("failed to read file %q to update links: %w", fname, err)
 		}
 		newContent := strings.ReplaceAll(string(buf), oldLink, newLink)
-		err = os.WriteFile(fname, []byte(newContent), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write file %q after updating links: %w", fname, err)
+		if newContent != string(buf) {
+			err = os.WriteFile(fname, []byte(newContent), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write file %q after updating links: %w", fname, err)
+			}
 		}
 	}
 
@@ -1084,6 +1086,7 @@ func renameZettel(zettelDir, fromId, toId string) error {
 		}
 	}
 
+	originalContent := updatedContent
 	linkedIds := extractLinksFromContent(updatedContent)
 	for _, id := range linkedIds {
 		base, branch, isDigit, err := stripLeaf(id)
@@ -1101,9 +1104,11 @@ func renameZettel(zettelDir, fromId, toId string) error {
 			updatedContent = strings.ReplaceAll(updatedContent, oldLink, newLink)
 		}
 	}
-	err = os.WriteFile(toPath, []byte(updatedContent), 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+	if updatedContent != originalContent {
+		err = os.WriteFile(toPath, []byte(updatedContent), 0644)
+		if err != nil {
+			return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+		}
 	}
 
 	allIds = getAllIds() // TODO: more efficient transformation?
@@ -1133,9 +1138,11 @@ func renameZettel(zettelDir, fromId, toId string) error {
 			}
 		}
 
-		err = os.WriteFile(thePath, []byte(content), 0644)
-		if err != nil {
-			return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+		if string(buf) != content {
+			err = os.WriteFile(thePath, []byte(content), 0644)
+			if err != nil {
+				return fmt.Errorf("failed to write updated branch links to %q: %w", toPath, err)
+			}
 		}
 	}
 
