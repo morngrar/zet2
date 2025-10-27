@@ -25,7 +25,7 @@ var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.4.1"
+var version = "v0.5.0"
 
 var sequenceUpperLimit = 999999
 
@@ -1306,31 +1306,31 @@ func updateYamlPreamble(content, newId string) string {
 	return newContent
 }
 
-// 0.4 here
+// 0.5 here
 
 // TODO: replant command
 
-// 0.5 here
+// 0.6 here
 
 // TODO: extract command
 //	- must update subtree IDs == rename command is needed
 //	- furthermore, must effectively graft any child branches in selection onto new note
 
-// 0.6 here
+// 0.7 here
 
 // TODO: add persistent configuration of default prefix
 
-// 0.7 here
+// 0.8 here
 
 // TODO: code cleanup/refactoring
 // TODO: help/usage output
 
-// 0.8 here
+// 0.9 here
 
 // TODO: tab completion
 //	- explore command tree structure
 
-// 0.9 here
+// 0.10 here
 
 // TODO: automatic embed of latest git tag as version
 // TODO: goreleaser
