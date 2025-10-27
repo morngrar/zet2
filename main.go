@@ -610,8 +610,8 @@ func resolveSentinelZet(prefix string, start bool) string {
 }
 
 func ResolveCommand() {
-	id := shift(&os.Args)
-	if id == "next" {
+	idOrSubcommand := shift(&os.Args)
+	if idOrSubcommand == "next" {
 		pathOrId := shift(&os.Args)
 		if pathOrId == "path" {
 			zetPath := shift(&os.Args)
@@ -639,25 +639,25 @@ func ResolveCommand() {
 		}
 	}
 
-	if id == "latest" {
+	if idOrSubcommand == "latest" {
 		prefix := shift(&os.Args)
 		resolved := resolveSentinelZet(prefix, false)
 		fmt.Println(resolved)
 		return
 	}
 
-	if id == "earliest" {
+	if idOrSubcommand == "earliest" {
 		prefix := shift(&os.Args)
 		resolved := resolveSentinelZet(prefix, true)
 		fmt.Println(resolved)
 		return
 	}
 
-	if id == "previous" {
+	if idOrSubcommand == "previous" {
 		pathOrId := shift(&os.Args)
 		if pathOrId == "path" {
-			id = getIdFromPathOnArgs()
-			_, prevPath, err := determinePrevZet(id)
+			idOrSubcommand = getIdFromPathOnArgs()
+			_, prevPath, err := determinePrevZet(idOrSubcommand)
 			if err != nil {
 				log.Fatalf("Error determining next id: %s", err)
 				//TODO: give usage info instead of just crashing
@@ -676,6 +676,7 @@ func ResolveCommand() {
 		}
 	}
 
+	id := idOrSubcommand
 	resolved := id
 	if !unicode.IsDigit(rune(id[len(id)-1])) {
 		resolved = resolveSentinelZet(id, true)
