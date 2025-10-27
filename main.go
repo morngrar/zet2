@@ -1308,27 +1308,27 @@ func updateYamlPreamble(content, newId string) string {
 
 // 0.5 here
 
-// TODO: replant command
+// TODO: tab completion
+//	- explore command tree structure
 
 // 0.6 here
+
+// TODO: replant command
+
+// 0.7 here
 
 // TODO: extract command
 //	- must update subtree IDs == rename command is needed
 //	- furthermore, must effectively graft any child branches in selection onto new note
 
-// 0.7 here
+// 0.8 here
 
 // TODO: add persistent configuration of default prefix
 
-// 0.8 here
+// 0.9 here
 
 // TODO: code cleanup/refactoring
 // TODO: help/usage output
-
-// 0.9 here
-
-// TODO: tab completion
-//	- explore command tree structure
 
 // 0.10 here
 
