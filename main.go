@@ -232,14 +232,67 @@ func BranchCommand() {
 	}
 }
 
-func CreateCommand(prefix string) {
-	entries, err := os.ReadDir(zetDir)
-	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+// finds the lowest number in a sequence or branch, and returns it along with
+// if the sequence prefix is a dotted one or not. Returns error if the list of
+// entries is empty, or if the prefix is not found.
+func findLowestNumInSeq(prefix string, entries []os.DirEntry) (int, bool, error) {
+
+	if len(entries) == 0 {
+		return 0, false, fmt.Errorf("entries was empty")
 	}
+
+	minNum := sequenceUpperLimit
+	dotSeparated := true
+	numberPrefix := unicode.IsDigit(rune(prefix[len(prefix)-1]))
+	found := false
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		suffix, found := strings.CutPrefix(e.Name(), prefix)
+		if !found {
+			continue
+		}
+		if suffix[0] == '.' {
+			suffix = suffix[1:]
+		} else {
+			if !numberPrefix {
+				dotSeparated = false
+			}
+		}
+		if !unicode.IsDigit(rune(suffix[0])) {
+			continue
+		}
+		id, _ := strings.CutSuffix(suffix, ".md")
+		num, err := strconv.Atoi(id)
+		if err != nil {
+			continue
+		}
+		if num < minNum {
+			minNum = num
+		}
+	}
+
+	if !found {
+		return minNum, dotSeparated, fmt.Errorf("prefix not found")
+	}
+
+	return minNum, dotSeparated, nil
+}
+
+// finds the highest number in a sequence or branch, and returns it along with
+// if the sequence prefix is a dotted one or not. Returns error if the list of
+// entries is empty, or if the prefix is not found.
+func findHighestNumInSeq(prefix string, entries []os.DirEntry) (int, bool, error) {
+
+	if len(entries) == 0 {
+		return 0, false, fmt.Errorf("entries was empty")
+	}
+
 	maxNum := 0
 	dotSeparated := true
 	numberPrefix := unicode.IsDigit(rune(prefix[len(prefix)-1]))
+	found := false
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -268,6 +321,22 @@ func CreateCommand(prefix string) {
 		}
 	}
 
+	if !found {
+		return maxNum, dotSeparated, fmt.Errorf("prefix not found")
+	}
+
+	return maxNum, dotSeparated, nil
+}
+
+func CreateCommand(prefix string) {
+	entries, err := os.ReadDir(zetDir)
+	if err != nil {
+		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+	}
+	maxNum, dotSeparated, err := findHighestNumInSeq(prefix, entries)
+	if err != nil {
+		log.Fatalf("Unable to find next number in sequence: %s", err)
+	}
 	var zettelId string
 	if dotSeparated {
 		zettelId = fmt.Sprintf("%s.%d", prefix, maxNum+1)
@@ -544,17 +613,49 @@ func ResolveCommand() {
 		}
 	}
 
-	// TODO: resolve last in a sequence
-	// if id == "latest" {
-	// 	id := shift(&os.Args)
-	// 	last, err := getLastIdInBranch(id)
-	// 	if err != nil {
-	// 		log.Fatalf("Error determining last id: %s", err)
-	// 		//TODO: give usage info instead of just crashing
-	// 	}
-	// 	fmt.Println(last)
-	// 	return
-	// }
+	if id == "latest" {
+		prefix := shift(&os.Args)
+		entries, err := os.ReadDir(zetDir)
+		if err != nil {
+			log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+		}
+
+		maxNum, dotSeparated, err := findHighestNumInSeq(prefix, entries)
+		if err != nil {
+			log.Fatalf("Unable to find latest number in sequence: %s", err)
+		}
+		var zettelId string
+		if dotSeparated {
+			zettelId = fmt.Sprintf("%s.%d", prefix, maxNum)
+		} else {
+			zettelId = fmt.Sprintf("%s%d", prefix, maxNum)
+		}
+
+		fmt.Println(zettelId)
+		return
+	}
+
+	if id == "earliest" {
+		prefix := shift(&os.Args)
+		entries, err := os.ReadDir(zetDir)
+		if err != nil {
+			log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+		}
+
+		num, dotSeparated, err := findLowestNumInSeq(prefix, entries)
+		if err != nil {
+			log.Fatalf("Unable to find earliest number in sequence: %s", err)
+		}
+		var zettelId string
+		if dotSeparated {
+			zettelId = fmt.Sprintf("%s.%d", prefix, num)
+		} else {
+			zettelId = fmt.Sprintf("%s%d", prefix, num)
+		}
+
+		fmt.Println(zettelId)
+		return
+	}
 
 	if id == "previous" {
 		pathOrId := shift(&os.Args)
