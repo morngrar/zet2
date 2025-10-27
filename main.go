@@ -683,7 +683,11 @@ func ResolveCommand() {
 
 	filePath := path.Join(zetDir, resolved+".md")
 	if !fileExists(filePath) {
-		log.Fatalf("file does not exist: %q", filePath)
+		resolved = resolveSentinelZet(id, true)
+		filePath = path.Join(zetDir, resolved+".md")
+		if !fileExists(filePath) {
+			log.Fatalf("file does not exist: %q", filePath)
+		}
 	}
 	fmt.Println(filePath)
 }
