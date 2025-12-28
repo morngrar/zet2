@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -545,7 +546,8 @@ func RenameCommand() {
 
 	from := shift(&os.Args)
 	to := shift(&os.Args)
-	err := renameZettel(zetDir, from, to)
+	renamedChildren := []string{}
+	err := renameZettel(zetDir, from, to, &renamedChildren)
 	if err != nil {
 		log.Fatalf("failed to perform recursive rename: %s", err)
 	}
@@ -1117,11 +1119,17 @@ func timestamp() string {
 	return ts
 }
 
-func renameZettel(zettelDir, fromId, toId string) error {
+func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) error {
+
+	if renamedChildren == nil {
+		panic("must pass renamed children slice - i know this is tech debt")
+	}
 
 	// TODO: candidate for optimization later
 
 	var err error
+
+	fmt.Printf("Renaming %q -> %q\n", fromId, toId)
 
 	_, _, numeric, err := stripLeaf(toId)
 	if err != nil {
@@ -1170,19 +1178,38 @@ func renameZettel(zettelDir, fromId, toId string) error {
 	}
 
 	prefix := fromId
-	renamedChildren := []string{}
-	// NOTE: refresh to get rid of already renamed id
 	for _, id := range allIds {
+		if slices.Contains(*renamedChildren, id) { // TODO: rewrite this function to not be recursive instead. split up renaming and re-linking
+			continue
+		}
+
+		idRunes := []rune(id)
+		idLastRune := idRunes[len(idRunes)-1]
+		idIsDigit := unicode.IsDigit(idLastRune)
+
+		if err != nil {
+			log.Fatalf("failed to strip leaf of id while renaming: %s", err)
+		}
 		if tail, ok := strings.CutPrefix(id, prefix); ok {
-			err = renameZettel(zettelDir, id, toId+tail)
+
+			// NOTE: if last digit of prefix and first digit of tail are both
+			// of same class, then this is not a branch boundary. E.g. tmp.1 vs
+			// tmp.123
+			tailRunes := []rune(tail)
+			tailIsDigit := unicode.IsDigit(tailRunes[0])
+			if idIsDigit == tailIsDigit {
+				continue
+			}
+
+			err = renameZettel(zettelDir, id, toId+tail, renamedChildren)
 			if err != nil {
 				log.Println("successfully renamed the following before error:")
-				for _, c := range renamedChildren {
+				for _, c := range *renamedChildren {
 					log.Printf("  %s\n", c)
 				}
 				return fmt.Errorf("failed to rename %q:", err)
 			}
-			renamedChildren = append(renamedChildren, id)
+			*renamedChildren = append(*renamedChildren, id)
 		}
 	}
 
@@ -1245,6 +1272,8 @@ func renameZettel(zettelDir, fromId, toId string) error {
 			}
 		}
 	}
+
+	fmt.Printf("Finished renaming %q -> %q\n", fromId, toId)
 
 	return nil
 }
