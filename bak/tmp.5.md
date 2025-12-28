@@ -1,7 +1,7 @@
 ---
 zettel: tmp.5
-date: Sun 2025-10-26 14:33:20 CET
+date: Thu 2025-12-25 15:49:50 CET
 ---
 
-asdlfk jsadlfka sjdlfksj adf
+:q
 
