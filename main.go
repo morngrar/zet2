@@ -1121,11 +1121,13 @@ func timestamp() string {
 
 func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) error {
 
+	// TODO: rewrite this function to not be recursive instead. split up
+	// renaming and re-linking. This interface is UGLY. This function is
+	// inefficient as f.
+
 	if renamedChildren == nil {
 		panic("must pass renamed children slice - i know this is tech debt")
 	}
-
-	// TODO: candidate for optimization later
 
 	var err error
 
@@ -1179,7 +1181,7 @@ func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) err
 
 	prefix := fromId
 	for _, id := range allIds {
-		if slices.Contains(*renamedChildren, id) { // TODO: rewrite this function to not be recursive instead. split up renaming and re-linking
+		if slices.Contains(*renamedChildren, id) {
 			continue
 		}
 
@@ -1238,7 +1240,7 @@ func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) err
 		}
 	}
 
-	allIds = getAllIds() // TODO: more efficient transformation?
+	allIds = getAllIds()
 	for _, root := range allIds {
 		thePath := path.Join(zettelDir, root+".md")
 		buf, err := os.ReadFile(thePath)
