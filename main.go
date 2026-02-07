@@ -26,7 +26,7 @@ var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.6.1"
+var version = "v0.6.2"
 
 var sequenceUpperLimit = 999999
 
@@ -449,6 +449,7 @@ func filterPassthrough() error {
 	if err != nil {
 		return fmt.Errorf("failed to write data to stdout: %w", err)
 	}
+	return nil
 }
 
 var LinkCommand = cmdtree.Cmd{
