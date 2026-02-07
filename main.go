@@ -1143,8 +1143,12 @@ func putOnClipboard(text string) error {
 	switch runtime.GOOS {
 
 	case "linux":
-		cmd = exec.Command("xclip", "-selection", "clipboard")
-		// TODO: wayland support
+		if os.Getenv("XDG_SESSION_TYPE") == "wayland" {
+			// ref: https://superuser.com/questions/1189467/how-to-copy-text-to-the-clipboard-when-using-wayland
+			cmd = exec.Command("wl-copy")
+		} else {
+			cmd = exec.Command("xclip", "-selection", "clipboard")
+		}
 	case "darwin":
 		cmd = exec.Command("pbcopy")
 	default:
@@ -1462,5 +1466,4 @@ func updateYamlPreamble(content, newId string) string {
 //	- look at gh for rendering markdown
 //	- look at logbrowser for the tui stuff, dont overcomplicate
 // TODO: more sophisticated search
-// TODO: wayland support for link command
 // TODO: windows support for link command
