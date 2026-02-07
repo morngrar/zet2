@@ -1160,12 +1160,6 @@ func putOnClipboard(text string) error {
 	return cmd.Run()
 }
 
-func shift(stringSlice *[]string) string {
-	ret := (*stringSlice)[0]
-	*stringSlice = (*stringSlice)[1:]
-	return ret
-}
-
 // stripLeaf takes a zettel ID and strips the leaf branch off it, splitting the
 // ID into its parent and child components.
 //
