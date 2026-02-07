@@ -446,10 +446,7 @@ var LinkCommand = cmdtree.Cmd{
 			CommandName: "path",
 			Exec: func(args []string) error {
 				if len(args) != 1 {
-					log.Fatalf(
-						"Unsupported number of trailing arguments to link path command: '%v'",
-						args,
-					) // TODO: return instead
+					return fmt.Errorf("unsupported number of trailing arguments to link path command: '%v'", args)
 				}
 				id, err := getIdFromPathOnArgs(&args)
 				if err != nil {
@@ -458,7 +455,7 @@ var LinkCommand = cmdtree.Cmd{
 				s := fmt.Sprintf("[[%s]]\n", id)
 				err = putOnClipboard(s)
 				if err != nil {
-					log.Fatalf("Unable to add link to clipboard: %s", err) // TODO: return instead
+					return fmt.Errorf("error while adding link to clipboard: %w", err)
 				}
 				return nil
 			},
