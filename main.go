@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -10,12 +9,12 @@ import (
 	"path"
 	"regexp"
 	"runtime"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 	"unicode"
 
+	"github.com/morngrar/zet2/cmdtree"
 	"golang.org/x/term"
 )
 
@@ -51,19 +50,6 @@ var reservedPrefixes = []string{
 	"-h",
 }
 
-// NOTE: for better compline handling
-func SpaceSplitAndClean(s string) []string {
-	a := strings.SplitSeq(s, " ")
-	final := []string{}
-	for p := range a {
-		if p == "" {
-			continue
-		}
-		final = append(final, p)
-	}
-	return final
-}
-
 func main() {
 	log.SetFlags(0) // turn off timestamping log statements, this is a cli app
 	var err error
@@ -71,7 +57,7 @@ func main() {
 	if !DEBUG {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			panic(err)
+			log.Fatalf("Unable to retrieve user's home directory: %s", err)
 		}
 		zetDir = path.Join(homeDir, "zettel2") // NOTE: temporary prod-dir until 1.0, then the trailing 2 will be dropped in command and dir
 		// TODO: make this configurable
@@ -82,120 +68,99 @@ func main() {
 		log.Fatalf("Unable to ensure zettel dir '%s': %s", zetDir, err)
 	}
 
-	shift(&os.Args)
-
-	// TODO: completion must be some kind of statemachine...
-	// // Detect Bash completion request
-	// compline := os.Getenv("COMP_LINE")
-	// if compline != "" {
-	// 	full := handleCompletion(
-	// 		"create",
-	// 		"branch",
-	// 		"resolve",
-	// 	)
-	// 	if !full {
-	// 		return
-	// 	}
-	// }
-
-	if len(os.Args) == 0 {
-		// NOTE: shorthand for create with default prefix
-		CreateCommand(defaultPrefix)
-		return
-	}
-
-	if len(os.Args) == 1 {
-		// NOTE: support for shorthand prefixes
-
-		// add checks for supported singular commands here
-		for _, e := range []string{"version", "--version", "-v"} {
-			if e == os.Args[0] {
-				fmt.Printf("zet2 %s, Copyright 2025 S. Bjørnsen\n", version)
-				return
-			}
-		}
-
-		// check against reserved stuff
-		for _, e := range reservedPrefixes {
-			if e == os.Args[0] {
-				panic("reserved") //TODO: do this better
-			}
-		}
-
-		CreateCommand(os.Args[0])
-		return
-	}
-
-	//NOTE: subcommand tree
-	switch shift(&os.Args) {
-	case "create":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass prefix for creation")
-		}
-
-		CreateCommand(os.Args[0])
-
-	case "branch":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass parent id")
-		}
-		BranchCommand()
-	case "link":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass parent id")
-		}
-		LinkCommand()
-	case "resolve":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass id to resolve")
-		}
-		ResolveCommand()
-	case "rename":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass id to resolve")
-		}
-		RenameCommand()
-	case "replant":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass id to resolve")
-		}
-		ReplantCommand()
-	case "open":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass id to open")
-		}
-		OpenCommand()
-	case "grep":
-		if len(os.Args) == 0 {
-			panic("TODO: implement usage: need to pass id to open")
-		}
-		GrepCommand()
-	}
+	ZetCommand.CompleteOrRun()
 }
 
-func BranchCommand() {
+func printVersion(args []string) error {
+	fmt.Printf("zet2 %s, Copyright 2026 S. Bjørnsen\n", version)
+	return nil
+}
 
-	// NOTE: how to make sure that the file names in the system and the links
-	// are always in sync?
-	//	- normally, zets are write-only, except for renaming and extraction and
-	//	possible corruption/deletion
-	//	- if the zettel is master, the functions for modification must account
-	//	for updating no-longer-valid links
-	//	- if the file system is master, the situation is more unknown, and
-	//	responsibilities aren't clear
-	//	- therefore the zettel should be master
+var ZetCommand = cmdtree.Cmd{
+	CommandName: "zet",
+	SubCommands: []cmdtree.Cmd{
+		CreateCommand,
+		BranchCommand,
+		GrepCommand,
+		LinkCommand,
+		OpenCommand,
+		RenameCommand,
+		// ReplantCommand,
+		ResolveCommand,
+		{
+			CommandName: "version",
+			Exec:        printVersion,
+		},
+	},
+	Exec: func(args []string) error {
+		if len(args) == 0 {
+			return CreateCommand.Exec([]string{defaultPrefix})
+		}
 
-	var parentId string
-	shouldLink := false
-	// TODO: error checking length of args
-	arg1 := shift(&os.Args)
-	if arg1 == "link" {
-		parentId = shift(&os.Args)
-		shouldLink = true
-	} else {
-		parentId = arg1
-	}
+		// NOTE: special commands that should not be tab-completed
+		switch args[0] {
+		case "--version":
+			return printVersion(args)
+		}
 
+		return CreateCommand.Exec(args)
+	},
+}
+
+var BranchCommand = cmdtree.Cmd{
+	CommandName: "branch",
+	SubCommands: []cmdtree.Cmd{
+		{
+			CommandName: "link",
+			Exec: func(args []string) error {
+				parentId, err := cmdtree.SliceShift(&args)
+				if err != nil {
+					return fmt.Errorf("unable to shift off parent id for branch link command: %w", err)
+				}
+
+				branchId, err := createZettelBranchFile(parentId)
+				if err != nil {
+					return fmt.Errorf("error while creating branch file: %w", err)
+				}
+
+				linkAndAppend(parentId, branchId)
+				beginning, err := getFirstSeqInBranch(branchId)
+				if err != nil {
+					panic(err) // should NEVER happen
+				}
+				newFile := fmt.Sprintf("%s.md", beginning)
+				filePath := path.Join(zetDir, newFile)
+				fmt.Printf("%s\n", filePath)
+				return nil
+			},
+		},
+	},
+	Exec: func(args []string) error {
+		// NOTE: how to make sure that the file names in the system and the links
+		// are always in sync?
+		//	- normally, zets are write-only, except for renaming and extraction and
+		//	possible corruption/deletion
+		//	- if the zettel is master, the functions for modification must account
+		//	for updating no-longer-valid links
+		//	- if the file system is master, the situation is more unknown, and
+		//	responsibilities aren't clear
+		//	- therefore the zettel should be master
+
+		parentId, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("Error getting first argument of branch command: %w", err)
+		}
+		branchId, err := createZettelBranchFile(parentId)
+		if err != nil {
+			return fmt.Errorf("error while creating branch file: %w", err)
+		}
+
+		fmt.Printf("[[%s]]\n", branchId)
+		return nil
+	},
+}
+
+func createZettelBranchFile(parentId string) (branchId string, err error) {
 	if strings.HasSuffix(parentId, ".md") {
 		base := path.Base(parentId)
 		parentId, _ = strings.CutSuffix(base, ".md")
@@ -205,32 +170,25 @@ func BranchCommand() {
 	filePath := path.Join(zetDir, fileName)
 	byteContent, err := os.ReadFile(filePath)
 	if err != nil {
-		log.Fatalf("Unable to open parent '%s' for branching: %s", filePath, err)
+		return branchId, fmt.Errorf("unable to open parent '%s' for branching: %w", filePath, err)
 	}
 
 	content := string(byteContent)
 	links := extractLinksFromContent(content)
-	branches := filterBranches(links, parentId)
+	branches, err := filterBranches(links, parentId)
+	if err != nil {
+		return branchId, fmt.Errorf("unable to filter branches: %w", err)
+	}
 	next, err := nextBranch(branches)
 	if err != nil {
-		log.Fatalf("Unable to calculate next branch: %s", err)
+		return branchId, fmt.Errorf("unable to calculate next branch: %w", err)
 	}
-	branchId := parentId + next
-	createZettelFile(branchId + "1") // start branches on sequence no. 1
-
-	// output branch link
-	if shouldLink {
-		linkAndAppend(parentId, branchId)
-		beginning, err := getFirstSeqInBranch(branchId)
-		if err != nil {
-			panic(err) // should NEVER happen
-		}
-		newFile := fmt.Sprintf("%s.md", beginning)
-		filePath := path.Join(zetDir, newFile)
-		fmt.Printf("%s\n", filePath)
-	} else {
-		fmt.Printf("[[%s]]\n", branchId)
+	branchId = parentId + next
+	_, err = createZettelFile(branchId + "1") // start branches on sequence no. 1
+	if err != nil {
+		return branchId, fmt.Errorf("error while creating zettel file for branch %q: %w", branchId, err)
 	}
+	return branchId, nil
 }
 
 // finds the lowest number in a sequence or branch, and returns it along with
@@ -331,69 +289,103 @@ func findHighestNumInSeq(prefix string, entries []os.DirEntry) (int, bool, error
 	return maxNum, dotSeparated, nil
 }
 
-func CreateCommand(prefix string) {
-	entries, err := os.ReadDir(zetDir)
-	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
-	}
-	maxNum, dotSeparated, _ := findHighestNumInSeq(prefix, entries)
-	var zettelId string
-	if dotSeparated {
-		zettelId = fmt.Sprintf("%s.%d", prefix, maxNum+1)
-	} else {
-		zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
-	}
-	filePath := createZettelFile(zettelId)
-	openInEditor(filePath, true)
+var CreateCommand = cmdtree.Cmd{
+	CommandName: "create",
+	Exec: func(args []string) error {
+		entries, err := os.ReadDir(zetDir)
+		if err != nil {
+			return fmt.Errorf("unable to read zettel dir %q: %w", zetDir, err)
+		}
+
+		prefix, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("expected prefix to be an argument, error encountered while shifting it: %w", err)
+		}
+
+		// NOTE: check against reserved stuff
+		for _, e := range reservedPrefixes {
+			if e == prefix {
+				return fmt.Errorf("reserved prefix")
+			}
+		}
+
+		maxNum, dotSeparated, err := findHighestNumInSeq(prefix, entries)
+		if err != nil {
+			// NOTE: first zettel with given prefix
+			dotSeparated = true
+			maxNum = 0
+		}
+		var zettelId string
+		if dotSeparated {
+			zettelId = fmt.Sprintf("%s.%d", prefix, maxNum+1)
+		} else {
+			zettelId = fmt.Sprintf("%s%d", prefix, maxNum+1)
+		}
+		filePath, err := createZettelFile(zettelId)
+		if err != nil {
+			return fmt.Errorf("error while creating file while creating new zettel: %w", err)
+		}
+		return openInEditor(filePath, true)
+	},
 }
 
-func GrepCommand() {
-	grepTerm := shift(&os.Args)
-	re, err := regexp.Compile(grepTerm)
-	if err != nil {
-		log.Fatalf("Unable to compile regex term: %s", err)
-	}
-	terminalWidth, _, err := term.GetSize(0)
-	if err != nil {
-		panic(err)
-	}
-	entries, err := os.ReadDir(zetDir)
-	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		id, found := strings.CutSuffix(e.Name(), ".md")
-		if !found {
-			continue
-		}
-		contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
+var GrepCommand = cmdtree.Cmd{
+	CommandName: "grep",
+	Exec: func(args []string) error {
+		grepTerm, err := cmdtree.SliceShift(&args)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("error while shifting off grep term from args: %w", err)
 		}
-		if re.Match(contentBytes) {
-			content := string(contentBytes)
-			for _, line := range strings.Split(content, "\n") {
-				if re.MatchString(line) {
-					prefix := fmt.Sprintf("%s: ", id)
-					truncLimit := terminalWidth - len(prefix)
-					line = strings.TrimSpace(line)
-					if len(line) > truncLimit {
-						line = line[:truncLimit-3] + "..."
+		re, err := regexp.Compile(grepTerm)
+		if err != nil {
+			return fmt.Errorf("unable to compile regex term: %w", err)
+		}
+		terminalWidth, _, err := term.GetSize(0)
+		if err != nil {
+			return fmt.Errorf("error while getting size of terminal: %w", err)
+		}
+		entries, err := os.ReadDir(zetDir)
+		if err != nil {
+			return fmt.Errorf("unable to read zettel dir %q: %w", zetDir, err)
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			id, found := strings.CutSuffix(e.Name(), ".md")
+			if !found {
+				continue
+			}
+			contentBytes, err := os.ReadFile(path.Join(zetDir, e.Name()))
+			if err != nil {
+				return fmt.Errorf("error while reading file: %w", err)
+			}
+			if re.Match(contentBytes) {
+				content := string(contentBytes)
+				for _, line := range strings.Split(content, "\n") {
+					if re.MatchString(line) {
+						prefix := fmt.Sprintf("%s: ", id)
+						truncLimit := terminalWidth - len(prefix)
+						line = strings.TrimSpace(line)
+						if len(line) > truncLimit {
+							line = line[:truncLimit-3] + "..."
+						}
+						fmt.Printf("%s%s\n", prefix, line)
 					}
-					fmt.Printf("%s%s\n", prefix, line)
 				}
 			}
 		}
-	}
+		return nil
+	},
 }
 
-func retryOpenPrefix(id string) {
-	idsMatchingPrefix := getIdsMatchingPrefix(id)
+func retryOpenPrefix(id string) error {
+	idsMatchingPrefix, err := getIdsMatchingPrefix(id)
+	if err != nil {
+		return fmt.Errorf("failed getting ids matching prefix %q: %w", id, err)
+	}
 	if len(idsMatchingPrefix) == 0 {
-		log.Fatalf("File doesn't exist, and no matching prefixes found.")
+		return fmt.Errorf("file doesn't exist, and no matching prefixes found.")
 	}
 
 	// NOTE: find the start of the shortest matching id
@@ -439,69 +431,80 @@ func retryOpenPrefix(id string) {
 		newFile := fmt.Sprintf("%s%d.md", base, minNum)
 		filePath := path.Join(zetDir, newFile)
 		if fileExists(filePath) {
-			openInEditor(filePath, false)
-			return
+			return openInEditor(filePath, false)
 		}
 	}
 
 	// NOTE: i tried.
-	log.Fatalf("Neither file, nor matching sequence exist: %q", id)
+	return fmt.Errorf("neither file, nor matching sequence exist: %q", id)
 }
 
-func LinkCommand() {
+var LinkCommand = cmdtree.Cmd{
+	CommandName: "link",
+	SubCommands: []cmdtree.Cmd{
+		{
+			CommandName: "path",
+			Exec: func(args []string) error {
+				if len(args) != 1 {
+					log.Fatalf(
+						"Unsupported number of trailing arguments to link path command: '%v'",
+						args,
+					) // TODO: return instead
+				}
+				id, err := getIdFromPathOnArgs(&args)
+				if err != nil {
+					return fmt.Errorf("failed to get id from args: %w", err)
+				}
+				s := fmt.Sprintf("[[%s]]\n", id)
+				err = putOnClipboard(s)
+				if err != nil {
+					log.Fatalf("Unable to add link to clipboard: %s", err) // TODO: return instead
+				}
+				return nil
+			},
+		},
+	},
 
-	arg1 := shift(&os.Args)
-	if arg1 == "path" {
-		if len(os.Args) != 1 {
-			log.Fatalf(
-				"Unsupported number of trailing arguments to link path command: '%v'",
-				os.Args,
-			)
-		}
-		id := getIdFromPathOnArgs()
-		s := fmt.Sprintf("[[%s]]\n", id)
-		err := putOnClipboard(s)
+	Exec: func(args []string) error {
+		srcId, err := cmdtree.SliceShift(&args)
 		if err != nil {
-			log.Fatalf("Unable to add link to clipboard: %s", err)
+			return fmt.Errorf("unable to shift off source id from args: %w", err)
 		}
-		return
-	}
 
-	if len(os.Args) == 1 {
+		if len(args) > 1 {
+			return fmt.Errorf("unsupported number of trailing arguments to link command: '%v'", args)
+		}
+
 		// TODO: two-way linking between ids?
 
-		srcId := arg1
-		dstId := shift(&os.Args)
-		linkAndAppend(srcId, dstId)
-		return
-
-	} else if len(os.Args) > 1 {
-		log.Fatalf("Unsupported number of trailing arguments to link command: '%v'", os.Args)
-	}
-
-	panic("unimplemented")
+		dstId, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("failed to shift off destination ID in link command: %w", err)
+		}
+		return linkAndAppend(srcId, dstId)
+	},
 }
 
-func linkAndAppend(srcId, dstId string) {
+func linkAndAppend(srcId, dstId string) error {
 	srcPath := path.Join(zetDir, srcId+".md")
 	if !fileExists(srcPath) {
-		log.Fatalf("Source zet does not exist: %q", srcPath)
+		return fmt.Errorf("source zet does not exist: %q", srcPath)
 	}
 
 	dstPath := path.Join(zetDir, dstId+".md")
 	if !fileExists(dstPath) {
 		_, err := getFirstSeqInBranch(dstId)
 		if err != nil {
-			log.Fatalf("Destination zet or branch does not exist: %q", dstId)
+			return fmt.Errorf("destination %q does not exist: %w", dstId, err)
 		}
 	}
 
-	// NOTE: all good, now append link to src
 	link := fmt.Sprintf("\n[[%s]]\n", dstId)
 	err := appendToFile(link, srcPath)
 	if err != nil {
-		log.Fatalf("Unable to append link: %s", err)
+		return fmt.Errorf("unable to append link: %w", err)
 	}
+	return nil
 }
 
 func appendToFile(s string, path string) error {
@@ -511,66 +514,81 @@ func appendToFile(s string, path string) error {
 	}
 	defer f.Close()
 	if _, err := f.WriteString(s); err != nil {
-		return err
+		return fmt.Errorf("failed to append string to %q: %w", path, err)
 	}
 	return nil
 }
 
-func OpenCommand() {
-	id := shift(&os.Args)
-	if !unicode.IsDigit(rune(id[len(id)-1])) {
-		// not a sequence no. so must be branch
+var OpenCommand = cmdtree.Cmd{
+	CommandName: "open",
+	Exec: func(args []string) error {
 		var err error
-		tmpId, err := getFirstSeqInBranch(id)
+		id, err := cmdtree.SliceShift(&args)
 		if err != nil {
-			// NOTE: may be an all-letter prefix
-			// TODO: this procedure, where failure is a crash, and a success must return, should be refactored later
-			retryOpenPrefix(id)
-			return // NOTE: failure results in crash
+			return fmt.Errorf("error while shifting off id to open: %w", err)
 		}
-		id = tmpId // NOTE: success should preserve new id
-	}
+		if !unicode.IsDigit(rune(id[len(id)-1])) {
+			// NOTE: not a sequence no. so must be branch
+			tmpId, err := getFirstSeqInBranch(id)
+			if err != nil {
+				// NOTE: may be an all-letter prefix
+				return retryOpenPrefix(id)
+			}
+			id = tmpId // NOTE: success should preserve new id
+		}
 
-	// NOTE: happy path, just open the file
-	filePath := path.Join(zetDir, id+".md")
-	if fileExists(filePath) {
-		openInEditor(filePath, false)
-		return
-	}
+		// NOTE: happy path, just open the file
+		filePath := path.Join(zetDir, id+".md")
+		if fileExists(filePath) {
+			return openInEditor(filePath, false)
+		}
 
-	// NOTE: attempt to be clever when user tries to open valid prefix
-	retryOpenPrefix(id)
+		// NOTE: attempt to be clever when user tries to open valid prefix
+		return retryOpenPrefix(id)
+	},
 }
 
-func RenameCommand() {
+var RenameCommand = cmdtree.Cmd{
+	CommandName: "rename",
+	Exec: func(args []string) error {
+		from, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("error while shifting off from id: %w", err)
+		}
+		to, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("error while shifting off to id: %w", err)
+		}
+		renamedChildren := []string{}
+		err = renameZettel(zetDir, from, to, &renamedChildren)
+		if err != nil {
+			return fmt.Errorf("failed to perform recursive rename: %w", err)
+		}
 
-	from := shift(&os.Args)
-	to := shift(&os.Args)
-	renamedChildren := []string{}
-	err := renameZettel(zetDir, from, to, &renamedChildren)
-	if err != nil {
-		log.Fatalf("failed to perform recursive rename: %s", err)
-	}
+		// for later
+		// TODO: journaler
+		// TODO: journal remover
 
-	// for later
-	// TODO: journaler
-	// TODO: journal remover
-
+		return nil
+	},
 }
 
-func ReplantCommand() {
-	// NOTE: for renaming a branch into a new series, replacing branch link
+var ReplantCommand = cmdtree.Cmd{
+	CommandName: "replant",
+	Exec: func(args []string) error {
+		// NOTE: for renaming a branch into a new series, replacing branch link
 
-	// NOTE: branch isolation from excalidraw:
-	// 1. Determine parent ID
-	// 2. Remove link(s) in parent (should replace with a jumpable prefix link instead)
-	// 3. Get all zets prefixed with branch ID
-	// 4. Rename all those according to [Renaming a Zettel] with new prefix,
-	//    preserving sequence number
+		// NOTE: branch isolation from excalidraw:
+		// 1. Determine parent ID
+		// 2. Remove link(s) in parent (should replace with a jumpable prefix link instead)
+		// 3. Get all zets prefixed with branch ID
+		// 4. Rename all those according to [Renaming a Zettel] with new prefix,
+		//    preserving sequence number
 
-	// for branch isolation
-	// TODO: link replacer
-	panic("replanting not implemented")
+		// for branch isolation
+		// TODO: link replacer
+		return fmt.Errorf("replanting not implemented")
+	},
 }
 
 // The OS function for renaming files will silently overwrite the destination
@@ -584,22 +602,22 @@ func performRename(src, dst string) error {
 	return os.Rename(src, dst)
 }
 
-func resolveSentinelZet(prefix string, start bool) string {
+func resolveSentinelZet(prefix string, start bool) (string, error) {
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+		return "", fmt.Errorf("Unable to read zettel dir %q: %w", zetDir, err)
 	}
 	var num int
 	var dotSeparated bool
 	if start {
 		num, dotSeparated, err = findLowestNumInSeq(prefix, entries)
 		if err != nil {
-			log.Fatalf("Unable to find earliest number in sequence: %s", err)
+			return "", fmt.Errorf("Unable to find earliest number in sequence: %w", err)
 		}
 	} else {
 		num, dotSeparated, err = findHighestNumInSeq(prefix, entries)
 		if err != nil {
-			log.Fatalf("Unable to find latest number in sequence: %s", err)
+			return "", fmt.Errorf("Unable to find latest number in sequence: %w", err)
 		}
 	}
 	var zettelId string
@@ -608,103 +626,156 @@ func resolveSentinelZet(prefix string, start bool) string {
 	} else {
 		zettelId = fmt.Sprintf("%s%d", prefix, num)
 	}
-	return zettelId
+	return zettelId, nil
 }
 
-func ResolveCommand() {
-	idOrSubcommand := shift(&os.Args)
-	if idOrSubcommand == "next" {
-		pathOrId := shift(&os.Args)
-		if pathOrId == "path" {
-			zetPath := shift(&os.Args)
-			base := path.Base(zetPath)
-			id, extFound := strings.CutSuffix(base, ".md")
-			if !extFound {
-				log.Fatalf("given file did not have expected extension: %q", base)
-			}
-			_, nextPath, err := determineNextZet(id)
-			if err != nil {
-				log.Fatalf("Error determining next id: %s", err)
-				//TODO: give usage info instead of just crashing
-			}
-			fmt.Println(nextPath)
-			return
-		} else {
-			id := pathOrId
-			nextId, _, err := determineNextZet(id)
-			if err != nil {
-				log.Fatalf("Error determining next id: %s", err)
-				//TODO: give usage info instead of just crashing
-			}
-			fmt.Println(nextId)
-			return
+var ResolveCommand = cmdtree.Cmd{
+	CommandName: "resolve",
+	SubCommands: []cmdtree.Cmd{
+		{
+			CommandName: "next",
+			SubCommands: []cmdtree.Cmd{
+				{
+					CommandName: "path",
+					Exec: func(args []string) error {
+						zetPath, err := cmdtree.SliceShift(&args)
+						if err != nil {
+							return fmt.Errorf("failed to shift off zettel path: %w", err)
+						}
+						base := path.Base(zetPath)
+						id, extFound := strings.CutSuffix(base, ".md")
+						if !extFound {
+							return fmt.Errorf("given file did not have expected extension: %q", base)
+						}
+						_, nextPath, err := determineNextZet(id)
+						if err != nil {
+							return fmt.Errorf("error determining next id: %s", err)
+						}
+						fmt.Println(nextPath)
+						return nil
+					},
+				},
+			},
+			Exec: func(args []string) error {
+				id, err := cmdtree.SliceShift(&args)
+				if err != nil {
+					return fmt.Errorf("failed to shift off id to resolve: %w", err)
+				}
+				nextId, _, err := determineNextZet(id)
+				if err != nil {
+					return fmt.Errorf("failed to determine next zettel: %w", err)
+
+				}
+				fmt.Println(nextId)
+				return nil
+			},
+		},
+		{
+			CommandName: "latest",
+			Exec: func(args []string) error {
+				prefix, err := cmdtree.SliceShift(&args)
+				if err != nil {
+					return fmt.Errorf("failed shifting prefix off args: %w", err)
+				}
+				resolved, err := resolveSentinelZet(prefix, false)
+				if err != nil {
+					return fmt.Errorf("error while resolving sentinel zet for resolve latest command: %w", err)
+				}
+				fmt.Println(resolved)
+				return nil
+			},
+		},
+		{
+			CommandName: "earliest",
+			Exec: func(args []string) error {
+				prefix, err := cmdtree.SliceShift(&args)
+				if err != nil {
+					return fmt.Errorf("failed shifting prefix off args: %w", err)
+				}
+				resolved, err := resolveSentinelZet(prefix, true)
+				if err != nil {
+					return fmt.Errorf("error while resolving sentinel zet in 'earliest' resolve command: %w", err)
+				}
+				fmt.Println(resolved)
+				return nil
+			},
+		},
+		{
+			CommandName: "previous",
+			SubCommands: []cmdtree.Cmd{
+				{
+					CommandName: "path",
+					Exec: func(args []string) error {
+						idOrSubcommand, err := getIdFromPathOnArgs(&args)
+						if err != nil {
+							return fmt.Errorf("error while getting id from args in resolve previous path command: %w", err)
+						}
+						_, prevPath, err := determinePrevZet(idOrSubcommand)
+						if err != nil {
+							return fmt.Errorf("error determining previous zettel path: %w", err)
+						}
+						fmt.Println(prevPath)
+						return nil
+					},
+				},
+			},
+			Exec: func(args []string) error {
+				pathOrId, err := cmdtree.SliceShift(&args)
+				if err != nil {
+					return fmt.Errorf("failed to shift args in resolve previous command: %w", err)
+				}
+				id := pathOrId
+				prevId, _, err := determinePrevZet(id)
+				if err != nil {
+					return fmt.Errorf("error determining previous id: %w", err)
+				}
+				fmt.Println(prevId)
+				return nil
+			},
+		},
+	},
+	Exec: func(args []string) error {
+		id, err := cmdtree.SliceShift(&args)
+		if err != nil {
+			return fmt.Errorf("failed to shift id off args in resolve command: %w", err)
 		}
-	}
-
-	if idOrSubcommand == "latest" {
-		prefix := shift(&os.Args)
-		resolved := resolveSentinelZet(prefix, false)
-		fmt.Println(resolved)
-		return
-	}
-
-	if idOrSubcommand == "earliest" {
-		prefix := shift(&os.Args)
-		resolved := resolveSentinelZet(prefix, true)
-		fmt.Println(resolved)
-		return
-	}
-
-	if idOrSubcommand == "previous" {
-		pathOrId := shift(&os.Args)
-		if pathOrId == "path" {
-			idOrSubcommand = getIdFromPathOnArgs()
-			_, prevPath, err := determinePrevZet(idOrSubcommand)
+		resolved := id
+		if !unicode.IsDigit(rune(id[len(id)-1])) {
+			resolved, err = resolveSentinelZet(id, true)
 			if err != nil {
-				log.Fatalf("Error determining next id: %s", err)
-				//TODO: give usage info instead of just crashing
+				return fmt.Errorf("error while resolving sentinel zet for normal resolve command")
 			}
-			fmt.Println(prevPath)
-			return
-		} else {
-			id := pathOrId
-			prevId, _, err := determinePrevZet(id)
-			if err != nil {
-				log.Fatalf("Error determining previous id: %s", err)
-				//TODO: give usage info instead of just crashing
-			}
-			fmt.Println(prevId)
-			return
 		}
-	}
 
-	id := idOrSubcommand
-	resolved := id
-	if !unicode.IsDigit(rune(id[len(id)-1])) {
-		resolved = resolveSentinelZet(id, true)
-	}
-
-	filePath := path.Join(zetDir, resolved+".md")
-	if !fileExists(filePath) {
-		resolved = resolveSentinelZet(id, true)
-		filePath = path.Join(zetDir, resolved+".md")
+		filePath := path.Join(zetDir, resolved+".md")
 		if !fileExists(filePath) {
-			log.Fatalf("file does not exist: %q", filePath)
+			resolved, err = resolveSentinelZet(id, true)
+			if err != nil {
+				return fmt.Errorf("error while resolving sentinel zet after determinin file didn't exist: %w", err)
+			}
+			filePath = path.Join(zetDir, resolved+".md")
+			if !fileExists(filePath) {
+				return fmt.Errorf("file does not exist: %q", filePath)
+			}
 		}
-	}
-	fmt.Println(filePath)
+		fmt.Println(filePath)
+		return nil
+	},
 }
 
 // getIdFromPathOnArgs shifts os.Args and returns the zettel id of the file
 // path that is assumed to be the first argument
-func getIdFromPathOnArgs() string {
-	zetPath := shift(&os.Args)
+func getIdFromPathOnArgs(args *[]string) (string, error) {
+	zetPath, err := cmdtree.SliceShift(args)
+	if err != nil {
+		return "", fmt.Errorf("failed to shift off arg: %w", err)
+	}
 	base := path.Base(zetPath)
 	id, extFound := strings.CutSuffix(base, ".md")
 	if !extFound {
-		log.Fatalf("given file did not have expected extension: %q", base)
+		return "", fmt.Errorf("given file did not have expected extension: %q", base)
 	}
-	return id
+	return id, nil
 }
 
 // alphaMax takes two alphabetic strings and returns the one with the highest
@@ -727,37 +798,47 @@ func alphaMax(a, b string) (string, error) {
 	return "", fmt.Errorf("%q and %q seem to be equal", a, b)
 }
 
-func createZettelFile(zettelId string) string {
+func createZettelFile(zettelId string) (string, error) {
 	fileName := fmt.Sprintf("%s.md", zettelId)
 	filePath := path.Join(zetDir, fileName)
 	if fileExists(filePath) {
-		log.Fatalf("Attempted to create existing file: %s", filePath)
+		return "", fmt.Errorf("attempted to create existing file: %s", filePath)
 	}
 	f, err := os.Create(filePath)
 	if err != nil {
-		log.Fatalf("Unable to create file '%s': %s", filePath, err)
+		return "", fmt.Errorf("unable to create file %q: %w", filePath, err)
 	}
+	defer f.Close()
 
 	ts := timestamp()
 	content := fmt.Sprintf("---\nzettel: %s\ndate: %s\n---\n\n\n\n", zettelId, ts)
-	f.Write([]byte(content))
-	f.Close()
-	return filePath
+	_, err = f.Write([]byte(content))
+	if err != nil {
+		return "", fmt.Errorf("failed to write content to new zettel file: %w", err)
+	}
+	return filePath, nil
 }
 
-func getIdsMatchingPrefix(prefix string) []string {
-	allIds := getAllIds()
+func getIdsMatchingPrefix(prefix string) ([]string, error) {
+	allIds, err := getAllIds()
+	if err != nil {
+		return nil, fmt.Errorf("failed retrieving all ids: %w", err)
+	}
 	idsMatchingPrefix := []string{}
 	for _, e := range allIds {
 		if strings.HasPrefix(e, prefix) {
 			idsMatchingPrefix = append(idsMatchingPrefix, e)
 		}
 	}
-	return idsMatchingPrefix
+	return idsMatchingPrefix, nil
 }
 
 func skipResolve(base string, seqNum int, reverse bool) (nextId, nextPath string, err error) {
-	allMatchingIds := getIdsMatchingPrefix(base)
+	allMatchingIds, err := getIdsMatchingPrefix(base)
+	if err != nil {
+		err = fmt.Errorf("failed to get ids matching prefix %q: %w", base, err)
+		return
+	}
 	reverseMaxMatch := -1
 	for _, id := range allMatchingIds {
 		subBase, subSeq, _, err := stripLeaf(id)
@@ -888,7 +969,7 @@ func determinePrevZet(id string) (prevId string, prevPath string, err error) {
 func extractLinksFromContent(content string) []string {
 	var links []string
 	r := regexp.MustCompile(`\[\[(?P<link>[a-zA-Z0-9\.\-\_]+)\]\]`)
-	for _, line := range strings.Split(content, "\n") {
+	for line := range strings.SplitSeq(content, "\n") {
 		match := r.FindStringSubmatch(line)
 		if len(match) < 2 {
 			continue
@@ -905,14 +986,14 @@ func fileExists(filePath string) bool {
 
 // filterBranches takes a slice of links (as stripped zettel IDs) and a zettel
 // ID, and filters out all links that are not direct branches of the zettel ID.
-func filterBranches(links []string, parentId string) []string {
+func filterBranches(links []string, parentId string) ([]string, error) {
 	// NOTE: Branches are always alphabetically suffixed. links to specific
 	// zettels in a branch have the sequence number
 	var branches []string
 	for _, l := range links {
 		base, _, digit, err := stripLeaf(l)
 		if err != nil {
-			log.Fatalf("error filtering branch: %s", err)
+			return nil, fmt.Errorf("error stripping leaf while filtering branches: %w", err)
 		}
 		if digit {
 			continue
@@ -921,13 +1002,13 @@ func filterBranches(links []string, parentId string) []string {
 			branches = append(branches, l)
 		}
 	}
-	return branches
+	return branches, nil
 }
 
-func getAllIds() []string {
+func getAllIds() ([]string, error) {
 	entries, err := os.ReadDir(zetDir)
 	if err != nil {
-		log.Fatalf("Unable to read zettel dir '%s': %s", zetDir, err)
+		return nil, fmt.Errorf("unable to read zettel dir %q: %w", zetDir, err)
 	}
 	ret := []string{}
 	for _, e := range entries {
@@ -940,25 +1021,28 @@ func getAllIds() []string {
 		}
 		ret = append(ret, id)
 	}
-	return ret
+	return ret, nil
 }
 
 func getFirstSeqInBranch(id string) (string, error) {
 	maxSeqVal := sequenceUpperLimit
-	allIds := getAllIds()
+	allIds, err := getAllIds()
+	if err != nil {
+		return "", fmt.Errorf("failed retrieving all ids: %w", err)
+	}
 	minSeq := maxSeqVal
 	for _, e := range allIds {
 		if strings.HasPrefix(e, id) {
 			base, seq, _, err := stripLeaf(e)
 			if err != nil {
-				panic(err)
+				return "", fmt.Errorf("failed to strip leaf of zettel ID: %w", err)
 			}
 			if base != id {
 				continue
 			}
 			n, err := strconv.Atoi(seq)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed converting sequence to number: %w", err)
 			}
 
 			if n == maxSeqVal {
@@ -997,7 +1081,7 @@ func incrementAlphaBranch(id string) (string, error) {
 		}
 	}
 
-	return id, errors.New("invalid branch string")
+	return id, fmt.Errorf("invalid branch string")
 }
 
 // nextBranch takes a list of sibling zettel IDs and returns the ID of the next
@@ -1026,13 +1110,13 @@ func nextBranch(branches []string) (string, error) {
 		} else {
 			maxChars, err = alphaMax(maxChars, branch)
 			if err != nil {
-				return "", err
+				return "", fmt.Errorf("failed to calculate alphaMax while computing next branch: %w", err)
 			}
 		}
 	}
 
 	if maxChars == "" {
-		panic("highest branch number not detected after iterating through all given branches in NextBranch")
+		panic("highest branch number not detected after iterating through all given branches in nextBranch")
 	}
 
 	nextAlphaBranch, err := incrementAlphaBranch(maxChars)
@@ -1042,7 +1126,7 @@ func nextBranch(branches []string) (string, error) {
 	return nextAlphaBranch, nil
 }
 
-func openInEditor(path string, insertMode bool) {
+func openInEditor(path string, insertMode bool) error {
 	var cmd *exec.Cmd
 	if (editor == "vim" || editor == "nvim") && insertMode {
 		cmd = exec.Command(editor, "+6", "-c", "startinsert", path)
@@ -1054,10 +1138,7 @@ func openInEditor(path string, insertMode bool) {
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 
-	err := cmd.Run()
-	if err != nil {
-		log.Fatalf("Unable to run editor (%s) command: %s", editor, err)
-	}
+	return cmd.Run()
 }
 
 func putOnClipboard(text string) error {
@@ -1161,7 +1242,10 @@ func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) err
 		return fmt.Errorf("failed to write updated yaml: %w", err)
 	}
 
-	allIds := getAllIds()
+	allIds, err := getAllIds()
+	if err != nil {
+		return fmt.Errorf("failed retrieving all ids: %w", err)
+	}
 	oldLink := fmt.Sprintf("[[%s]]", fromId)
 	newLink := fmt.Sprintf("[[%s]]", toId)
 	for _, id := range allIds {
@@ -1180,9 +1264,14 @@ func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) err
 	}
 
 	prefix := fromId
+
+collectRenamedChildrenLoop:
 	for _, id := range allIds {
-		if slices.Contains(*renamedChildren, id) {
-			continue
+
+		for _, e := range *renamedChildren {
+			if e == id {
+				continue collectRenamedChildrenLoop
+			}
 		}
 
 		idRunes := []rune(id)
@@ -1240,7 +1329,10 @@ func renameZettel(zettelDir, fromId, toId string, renamedChildren *[]string) err
 		}
 	}
 
-	allIds = getAllIds()
+	allIds, err = getAllIds()
+	if err != nil {
+		return fmt.Errorf("failed retrieving all ids: %w", err)
+	}
 	for _, root := range allIds {
 		thePath := path.Join(zettelDir, root+".md")
 		buf, err := os.ReadFile(thePath)
@@ -1337,11 +1429,6 @@ func updateYamlPreamble(content, newId string) string {
 
 	return newContent
 }
-
-// 0.5 here
-
-// TODO: tab completion
-//	- explore command tree structure
 
 // 0.6 here
 
