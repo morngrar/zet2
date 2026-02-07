@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -439,6 +440,17 @@ func retryOpenPrefix(id string) error {
 	return fmt.Errorf("neither file, nor matching sequence exist: %q", id)
 }
 
+func filterPassthrough() error {
+	data, err := io.ReadAll(os.Stdin)
+	if err != nil {
+		return fmt.Errorf("failed to read stdin data: %w", err)
+	}
+	_, err = fmt.Fprint(os.Stdout, string(data))
+	if err != nil {
+		return fmt.Errorf("failed to write data to stdout: %w", err)
+	}
+}
+
 var LinkCommand = cmdtree.Cmd{
 	CommandName: "link",
 	SubCommands: []cmdtree.Cmd{
@@ -457,6 +469,15 @@ var LinkCommand = cmdtree.Cmd{
 				if err != nil {
 					return fmt.Errorf("error while adding link to clipboard: %w", err)
 				}
+
+				// NOTE: if called as filter with something on stdin, e.g. ran
+				// by a keybind in vim, should write that content back on
+				// stdout
+				err = filterPassthrough()
+				if err != nil {
+					return fmt.Errorf("failed to pass through filtered data: %w", err)
+				}
+
 				return nil
 			},
 		},
