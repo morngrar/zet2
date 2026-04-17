@@ -79,15 +79,15 @@ func printVersion(args []string) error {
 
 var ZetCommand = cmdtree.Cmd{
 	CommandName: "zet",
-	SubCommands: []cmdtree.Cmd{
-		CreateCommand,
-		BranchCommand,
-		GrepCommand,
-		LinkCommand,
-		OpenCommand,
-		RenameCommand,
-		// ReplantCommand,
-		ResolveCommand,
+	SubCommands: []*cmdtree.Cmd{
+		&CreateCommand,
+		&BranchCommand,
+		&GrepCommand,
+		&LinkCommand,
+		&OpenCommand,
+		&RenameCommand,
+		// &ReplantCommand,
+		&ResolveCommand,
 		{
 			CommandName: "version",
 			Exec:        printVersion,
@@ -110,7 +110,7 @@ var ZetCommand = cmdtree.Cmd{
 
 var BranchCommand = cmdtree.Cmd{
 	CommandName: "branch",
-	SubCommands: []cmdtree.Cmd{
+	SubCommands: []*cmdtree.Cmd{
 		{
 			CommandName: "link",
 			Exec: func(args []string) error {
@@ -454,7 +454,7 @@ func filterPassthrough() error {
 
 var LinkCommand = cmdtree.Cmd{
 	CommandName: "link",
-	SubCommands: []cmdtree.Cmd{
+	SubCommands: []*cmdtree.Cmd{
 		{
 			CommandName: "path",
 			Exec: func(args []string) error {
@@ -650,10 +650,10 @@ func resolveSentinelZet(prefix string, start bool) (string, error) {
 
 var ResolveCommand = cmdtree.Cmd{
 	CommandName: "resolve",
-	SubCommands: []cmdtree.Cmd{
+	SubCommands: []*cmdtree.Cmd{
 		{
 			CommandName: "next",
-			SubCommands: []cmdtree.Cmd{
+			SubCommands: []*cmdtree.Cmd{
 				{
 					CommandName: "path",
 					Exec: func(args []string) error {
@@ -720,8 +720,8 @@ var ResolveCommand = cmdtree.Cmd{
 			},
 		},
 		{
-			CommandName: "previous",
-			SubCommands: []cmdtree.Cmd{
+			CommandName: "	previous",
+			SubCommands: []*cmdtree.Cmd{
 				{
 					CommandName: "path",
 					Exec: func(args []string) error {

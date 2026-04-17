@@ -38,7 +38,7 @@ type Cmd struct {
 	// completion as well as execution of command lines. If you forget setting
 	// this value, the command cannot be found by the Run function, and so will
 	// not be executable.
-	SubCommands []Cmd
+	SubCommands []*Cmd
 }
 
 // Complete will perform command completion based on 'complete -C' in bash or
@@ -158,8 +158,7 @@ func (cmd Cmd) Run(args []string) error {
 			break
 		}
 		var nextCmd *Cmd = nil
-		for i := 0; i < len(workingCmd.SubCommands); i++ {
-			c := &workingCmd.SubCommands[i]
+		for _, c := range workingCmd.SubCommands {
 			if c.CommandName == args[0] {
 				nextCmd = c
 				break
