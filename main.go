@@ -47,6 +47,7 @@ var reservedPrefixes = []string{
 	"open",
 	"help",
 	"path",
+	"leaf",
 	"--help",
 	"-h",
 }
@@ -84,6 +85,7 @@ var ZetCommand = cmdtree.Cmd{
 		&BranchCommand,
 		&GrepCommand,
 		&LinkCommand,
+		&LeafCommand,
 		&OpenCommand,
 		&RenameCommand,
 		// &ReplantCommand,
@@ -646,6 +648,26 @@ func resolveSentinelZet(prefix string, start bool) (string, error) {
 		zettelId = fmt.Sprintf("%s%d", prefix, num)
 	}
 	return zettelId, nil
+}
+
+var LeafCommand = cmdtree.Cmd{
+	CommandName: "leaf",
+	Exec: func(args []string) error {
+		var prefix string
+		if len(args) > 0 {
+			prefix = args[0]
+		} else {
+			prefix = defaultPrefix
+		}
+
+		resolvedId, err := resolveSentinelZet(prefix, false)
+		if err != nil {
+			return fmt.Errorf("error resolving leaf for prefix %q: %w", prefix, err)
+		}
+
+		filePath := path.Join(zetDir, resolvedId+".md")
+		return openInEditor(filePath, false)
+	},
 }
 
 var ResolveCommand = cmdtree.Cmd{
