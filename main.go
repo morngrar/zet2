@@ -10,6 +10,7 @@ import (
 	"path"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -88,7 +89,7 @@ var ZetCommand = cmdtree.Cmd{
 		&LeafCommand,
 		&OpenCommand,
 		&RenameCommand,
-		// &ReplantCommand,
+		&ReplantCommand,
 		&ResolveCommand,
 		{
 			CommandName: "version",
@@ -594,21 +595,158 @@ var RenameCommand = cmdtree.Cmd{
 	},
 }
 
+func findParentWithBranchLink(branchId string) string {
+	allIds, err := getAllIds()
+	if err != nil {
+		return ""
+	}
+	linkPattern := "[[" + branchId + "]]"
+	for _, id := range allIds {
+		filePath := path.Join(zetDir, id+".md")
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(content), linkPattern) {
+			return id
+		}
+	}
+	return ""
+}
+
 var ReplantCommand = cmdtree.Cmd{
 	CommandName: "replant",
 	Exec: func(args []string) error {
-		// NOTE: for renaming a branch into a new series, replacing branch link
+		if len(args) != 2 {
+			return fmt.Errorf("usage: zet2 replant <source-id-or-prefix> <new-prefix>")
+		}
 
-		// NOTE: branch isolation from excalidraw:
-		// 1. Determine parent ID
-		// 2. Remove link(s) in parent (should replace with a jumpable prefix link instead)
-		// 3. Get all zets prefixed with branch ID
-		// 4. Rename all those according to [Renaming a Zettel] with new prefix,
-		//    preserving sequence number
+		sourceId := args[0]
+		newPrefix := args[1]
 
-		// for branch isolation
-		// TODO: link replacer
-		return fmt.Errorf("replanting not implemented")
+		allIds, err := getAllIds()
+		if err != nil {
+			return fmt.Errorf("failed to get all IDs: %w", err)
+		}
+
+		isBranch := false
+		if !fileExists(path.Join(zetDir, sourceId+".md")) {
+			for _, id := range allIds {
+				base, _, _, err := stripLeaf(id)
+				if err != nil {
+					return fmt.Errorf("stripLeaf failed: %w", err)
+				}
+				if base == sourceId {
+					isBranch = true
+					break
+				}
+			}
+		}
+
+		var zettelsToReplant []string
+		if isBranch {
+			for _, id := range allIds {
+				base, _, _, err := stripLeaf(id)
+				if err != nil {
+					return fmt.Errorf("error splitting base ID while determining zettels to replant: %w", err)
+				}
+				if base == sourceId {
+					zettelsToReplant = append(zettelsToReplant, id)
+				}
+			}
+			if len(zettelsToReplant) == 0 {
+				return fmt.Errorf("no zettels found for branch %q", sourceId)
+			}
+		} else {
+			zettelsToReplant = append(zettelsToReplant, sourceId)
+		}
+
+		sort.SliceStable(zettelsToReplant, func(i, j int) bool {
+			b1, leaf1, _, _ := stripLeaf(zettelsToReplant[i])
+			b2, leaf2, _, _ := stripLeaf(zettelsToReplant[j])
+
+			if b1 != b2 {
+				return b1 < b2
+			}
+
+			n1, err1 := strconv.Atoi(leaf1)
+			n2, err2 := strconv.Atoi(leaf2)
+
+			if err1 == nil && err2 == nil {
+				return n1 < n2
+			}
+
+			return leaf1 < leaf2
+		})
+
+		// Check for conflicts before renaming
+		if fileExists(path.Join(zetDir, newPrefix+".md")) {
+			return fmt.Errorf("replant target prefix %q already exists", newPrefix)
+		}
+
+		for i := range zettelsToReplant {
+			var leaf string
+			if isBranch {
+				_, origLeaf, _, err := stripLeaf(zettelsToReplant[i])
+				if err != nil {
+					return fmt.Errorf("error while stripping leaf for replanting: %w", err)
+				}
+				if _, err := strconv.Atoi(origLeaf); err == nil {
+					leaf = fmt.Sprintf("%d", i+1)
+				} else {
+					leaf = fmt.Sprintf("%d%c", i+1, origLeaf[0])
+				}
+			} else {
+				leaf = "1"
+			}
+
+			newId := newPrefix + "." + leaf
+			if fileExists(path.Join(zetDir, newId+".md")) {
+				return fmt.Errorf("destination %q already exists", newId)
+			}
+		}
+
+		for i, oldId := range zettelsToReplant {
+			var leaf string
+			if isBranch {
+				_, origLeaf, _, err := stripLeaf(oldId)
+				if err != nil {
+					return fmt.Errorf("error while stripping leaf for replanting: %w", err)
+				}
+				if _, err := strconv.Atoi(origLeaf); err == nil {
+					leaf = fmt.Sprintf("%d", i+1)
+				} else {
+					leaf = fmt.Sprintf("%d%c", i+1, origLeaf[0])
+				}
+			} else {
+				leaf = "1"
+			}
+
+			newId := newPrefix + "." + leaf
+
+			err := renameZettel(zetDir, oldId, newId, &[]string{})
+			if err != nil {
+				return fmt.Errorf("failed to rename %q: %w", oldId, err)
+			}
+		}
+
+		parentWithLink := findParentWithBranchLink(sourceId)
+		if parentWithLink != "" && isBranch {
+			firstNewId := fmt.Sprintf("%s.1", newPrefix)
+			oldBranchLink := "[[" + sourceId + "]]"
+			newLink := "[[" + firstNewId + "]]"
+			parentPath := path.Join(zetDir, parentWithLink+".md")
+			parentContent, err := os.ReadFile(parentPath)
+			if err != nil {
+				return fmt.Errorf("")
+			}
+
+			parentContent = []byte(strings.ReplaceAll(string(parentContent), oldBranchLink, newLink))
+			os.WriteFile(parentPath, parentContent, 0644)
+			fmt.Printf("Updated parent %s: %s -> %s\n", parentWithLink, oldBranchLink, newLink)
+		}
+
+		return nil
 	},
 }
 
@@ -1102,8 +1240,8 @@ func getFirstSeqInBranch(id string) (string, error) {
 	if minSeq == maxSeqVal {
 		return "", fmt.Errorf("Unable to find branch: %q", id)
 	}
-	id = fmt.Sprintf("%s%d", id, minSeq)
-	return id, nil
+
+	return id + strconv.Itoa(minSeq), nil
 }
 
 // incrementAlphaBranch takes a zettel ID that ends in an alphabetic character
@@ -1468,10 +1606,6 @@ func updateYamlPreamble(content, newId string) string {
 
 	return newContent
 }
-
-// 0.6 here
-
-// TODO: replant command
 
 // 0.7 here
 
