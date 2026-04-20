@@ -27,7 +27,7 @@ var DEBUG = os.Getenv("ZET2_DEBUG") == "1" || os.Getenv("ZET2_DEBUG") == "true"
 var editor = os.Getenv("EDITOR")
 var zetDir = "./zettel"
 var defaultPrefix = "tmp"
-var version = "v0.7.0"
+var version = "v0.7.1"
 
 var sequenceUpperLimit = 999999
 
@@ -880,7 +880,7 @@ var ResolveCommand = cmdtree.Cmd{
 			},
 		},
 		{
-			CommandName: "	previous",
+			CommandName: "previous",
 			SubCommands: []*cmdtree.Cmd{
 				{
 					CommandName: "path",
